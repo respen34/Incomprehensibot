@@ -31,12 +31,12 @@ async def on_ready():
 
 @bot.event
 async def on_message_delete(message):
-    guild = get_channel("Incomprehensible Games", "the-pentagon").guild
+    """guild = get_channel("Incomprehensible Games", "the-pentagon").guild
     if not message.author.bot:
         if message.guild == guild:
             channel = get_channel("Incomprehensible Games", "for-the-record")
             await channel.send(f"{message.author.name}: {message.content}")
-            await channel.send(message.author.mention)
+            await channel.send(message.author.mention)"""
 
 
 # noinspection PyShadowingNames
