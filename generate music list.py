@@ -2,8 +2,8 @@
 import os
 
 
-def musicGrabber(startingPath: str, destination):
-    driveList = [startingPath]
+def musicGrabber(starting_path: str, destination):
+    driveList = [starting_path]
 
     for drive in driveList:
         dirlist = os.listdir(drive)

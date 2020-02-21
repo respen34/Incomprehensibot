@@ -97,6 +97,12 @@ async def post(ctx, message, guild, channel):
         channel = discord.utils.get(guild.channels, name=channel)
         await channel.send(message)
 
+
+@bot.command(name='opt-in')
+async def add_role(ctx):
+    member = ctx.author
+    member.edit(roles=member.roles.append('@all'))
+
     ####################
     #  music commands  #
     ####################
