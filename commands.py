@@ -101,7 +101,7 @@ async def post(ctx, message, guild, channel):
 @bot.command(name='opt-in')
 async def add_role(ctx):
     member = ctx.author
-    member.edit(roles=member.roles.append('@all'))
+    await member.edit(roles=member.roles.append('@all'))
 
     ####################
     #  music commands  #
