@@ -52,7 +52,7 @@ class AudioPlayer:
         self.voice_client.play(audio_stream, after=lambda e: self._play_next())
 
     def _play_next(self):
-        print(len(self.playlist))
+        # print(len(self.playlist))
         if self.repeat:
             self.playlist.insert(0, self.currently_playing[0])
         if len(self.playlist) > 0:

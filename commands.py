@@ -9,6 +9,7 @@ import os
 import discord
 import jsonpickle
 import audio_player
+import time
 from maze import *
 
 from ThreeWords import ThreeWords
@@ -29,9 +30,9 @@ async def on_ready():
     print('This is test text')
 
 
-@bot.event
+"""@bot.event
 async def on_message_delete(message):
-    """guild = get_channel("Incomprehensible Games", "the-pentagon").guild
+    guild = get_channel("Incomprehensible Games", "the-pentagon").guild
     if not message.author.bot:
         if message.guild == guild:
             channel = get_channel("Incomprehensible Games", "for-the-record")
@@ -39,7 +40,6 @@ async def on_message_delete(message):
             await channel.send(message.author.mention)"""
 
 
-# noinspection PyShadowingNames
 @bot.event
 async def on_message(message):
     await bot.process_commands(message)
@@ -101,10 +101,56 @@ async def post(ctx, message, guild, channel):
 @bot.command(name='opt-in')
 async def add_role(ctx):
     member = ctx.author
-    current_roles = [r for r in member.roles]
     role = ctx.guild.roles[1]
-    roles = current_roles.append(role)
-    await member.edit(roles=roles)
+    await member.add_roles(role)
+    await ctx.send('You have been added to @all.')
+
+
+@bot.command(name='opt-out')
+async def remove_role(ctx):
+    member = ctx.author
+    role = ctx.guild.roles[1]
+    await member.remove_roles(role)
+    await ctx.send('You have been removed from @all.')
+
+
+class Timer:
+    def __init__(self, ctx=None, set_time: int = 1):
+        self.current_time = abs(set_time)
+        self.is_running = False
+        self.ctx = ctx
+
+    async def start(self, direction=1):
+        self.is_running = True
+        start_time = time.time()
+        message = await self.ctx.send(str(self.current_time))
+        self.current_time += direction
+        while self.current_time > 0 and self.is_running:
+            await asyncio.sleep(1)
+            self.current_time = int(time.time() - start_time)
+            try:
+                await message.edit(content=f"{self.current_time} seconds.")
+            except:
+                await self.stop()
+
+    async def stop(self):
+        self.is_running = False
+        await self.ctx.send(f"Timer stopped at {self.current_time} seconds.")
+
+
+timer = None
+
+
+@bot.command(name='cornwall_timer')
+async def cornwall_timer(ctx, set_time: int = 0):
+    # todo check for an existing timer, if it exists flip the is_running param, else make a new Timer instance
+    global timer
+    if timer is None:
+        timer = Timer(ctx, set_time)
+        await timer.start()
+    else:
+        await timer.stop()
+        timer = None
 
     ####################
     #  music commands  #
