@@ -20,6 +20,15 @@ os.chdir(os.getcwd() + "\\data\\")
 players = []
 save_on = False  # save still broken, something with the maze dict not reinitialising properly
 
+hasRun = False
+
+
+async def run_once():
+    global hasRun
+    if not hasRun:
+        await fanny_pack_friday()
+        hasRun = True
+
 
 @bot.event
 async def on_ready():
