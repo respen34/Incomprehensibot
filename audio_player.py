@@ -6,6 +6,10 @@ import random
 import mutagen
 import os
 import json
+from dotenv import load_dotenv
+
+load_dotenv()
+MUSIC_DIR = os.getenv("MUSIC_DIR")
 
 
 def identify_source(source):
@@ -105,7 +109,7 @@ class Playlist:
 
     def add_folder(self, folder):
         if ":\\" not in folder:
-            folder = f'C:\\Users\\respen34\\Music\\{folder}'
+            folder = f'{MUSIC_DIR}\\{folder}'
         if not os.path.exists(folder):
             return f"Path not found: {folder}"
         dir_list = [folder]

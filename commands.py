@@ -28,6 +28,7 @@ async def run_once():
     global hasRun
     if not hasRun:
         hasRun = True
+        await bot.change_presence(activity=discord.CustomActivity(name="Taming lions in Antarctica"))
         await initialize_counting_game()
         await fanny_pack_friday()
 
@@ -294,7 +295,6 @@ async def toggle_repeat(ctx):
     if player:
         player.repeat = not player.repeat
         await ctx.send(f'repeat set to {player.repeat}.')
-
 
     #######################
     #  special functions  #
