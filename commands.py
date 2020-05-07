@@ -27,9 +27,9 @@ music_players = {}
 async def run_once():
     global hasRun
     if not hasRun:
+        hasRun = True
         await initialize_counting_game()
         await fanny_pack_friday()
-        hasRun = True
 
 
 @bot.event
