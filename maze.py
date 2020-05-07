@@ -287,7 +287,7 @@ class Player(Container):
         return "\n".join(message)
 
 
-class Enemy(Container):  # new addition, needs testing, needs ai, possible genetic learning during play.
+class Enemy(Container):  # new addition, needs testing, needs ai, possible genetic learning during play_next.
     def __init__(self, enemy_type, tile):
         super().__init__()
         self.type = enemy_type
@@ -498,7 +498,7 @@ class Maze:
         length: after how many tiles should it generate a new layer
         difficulty and probabilities: extra parameters to be implemented later
        #######################################################"""
-
+    # (left dead, right dead, up dead, down dead,
     tileTypes = ((False, False, False, True), (False, True, False, False), (True, False, False, False),
                  (False, False, True, False), (False, True, False, True), (True, False, True, False),
                  (True, False, False, True), (True, True, False, False), (False, False, True, True),

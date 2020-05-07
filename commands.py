@@ -17,15 +17,17 @@ from ThreeWords import ThreeWords
 exec(open('maze.py').read())  # code for the cave runner game
 os.chdir(os.getcwd() + "\\data\\")
 
-players = []
+players = {}
 save_on = False  # save still broken, something with the maze dict not reinitialising properly
 
 hasRun = False
+music_players = {}
 
 
 async def run_once():
     global hasRun
     if not hasRun:
+        await initialize_counting_game()
         await fanny_pack_friday()
         hasRun = True
 
@@ -34,8 +36,7 @@ async def run_once():
 async def on_ready():
     print(f'{bot.user.name} is connected to the discord!')
     # load_data()
-    await initialize_counting_game()
-    await fanny_pack_friday()
+    await run_once()
     print('This is test text')
 
 
@@ -52,6 +53,14 @@ async def on_message_delete(message):
 @bot.event
 async def on_message(message):
     await bot.process_commands(message)
+
+
+@bot.event
+async def on_disconnect():
+    global music_players
+    for music_player in music_players:
+        await music_player.vc.disconnect()
+    music_players = {}
 
     ###################
     #  text commands  #
@@ -166,51 +175,74 @@ async def cornwall_timer(ctx, set_time: int = 0):
     ####################
 
 
+async def new_player(ctx):
+    # bot connects to the voice client of the user who executed the command and creates a new playlist instance
+    music_players[ctx.guild] = audio_player.Playlist(await ctx.author.voice.channel.connect())
+
+
 @bot.command(name='join')
 async def join(ctx):
-    await new_player(ctx)
+    global music_players
+    if music_players.get(ctx.guild) is None:
+        await new_player(ctx)
 
 
 @bot.command(name='leave')
 async def leave(ctx):
-    player = get_player(ctx.guild)
-    if player:
-        response = 'Alright fine! I see how it is.'
-        voice = players.pop(players.index(player))
-        await voice.voice_client.disconnect()
+    global music_players
+    music_player = music_players.get(ctx.guild)
+    if music_player is not None:
+        await music_player.vc.disconnect()
+        music_players[ctx.guild] = None
+        response = 'Alright, see ya.'
     else:
-        response = 'I have to be somewhere before I can leave you dunce!'
+        response = 'I cannot leave until I have joined.'
     await ctx.send(response, delete_after=60)
 
 
 @bot.command(name='play')
-async def play_audio(ctx, source=None, file_type='yt'):
-    if ctx.author.voice.channel is not None:
-        if ctx.me.voice is None:
-            await new_player(ctx)
-        player = get_player(ctx.guild)
-        if source:
-            source = audio_player.identify_source(source, file_type)
-            if not (player.voice_client.is_playing()):
-                player.play(source)
-            else:
+async def play_audio(ctx, *args):
+    """
+    Plays audio in voice.
+    :param ctx: discord context
+    :param args: audio source
+    :return:
+    """
+    if ctx.author.voice.channel is None:
+        await ctx.send('You must be in a voice channel to play music.')
+        return
+
+    player = music_players.get(ctx.guild)
+    if player is None:
+        await new_player(ctx)
+        player = music_players.get(ctx.guild)
+
+    if len(args) > 0:
+        if args[0] == "-folder":
+            # adds all songs in the specified folder and sub folders
+            player.add_folder(" ".join(args[1:len(args)]))
+        elif args[0] == "-list":
+            # adds all songs from a text file of sources
+            player.add_list(" ".join(args[1:len(args)]))
+        else:
+            source = " ".join(args)
+            if len(source) > 0:
                 player.add_song(source)
-        elif player.autoplay:
-            player.AutoPlay()
-    else:
-        await ctx.send('User is not in a voice channel, please join one and try again.')
+
+    if not (player.vc.is_playing()):
+        player.play()
 
 
 @bot.command(name='pause')
 async def pause(ctx):
-    player = get_player(ctx.guild)
+    player = music_players.get(ctx.guild)
     if player:
-        voice = player.voice_client
-        if voice.is_playing():
-            voice.pause()
+        vc = player.vc
+        if vc.is_playing():
+            vc.pause()
             response = 'The player has been paused.'
-        elif voice.is_paused():
-            voice.resume()
+        elif vc.is_paused():
+            vc.resume()
             response = 'The player has been unpaused.'
         else:
             response = 'The playlist is empty.'
@@ -221,62 +253,48 @@ async def pause(ctx):
 
 @bot.command(name='stop')
 async def stop(ctx):
-    player = get_player(ctx.guild)
+    player = music_players.get(ctx.guild)
     if player:
-        player.voice_client.stop()
-        await player.voice_client.disconnect()
+        player.vc.stop()
+        await player.vc.disconnect()
+        music_players[ctx.guild] = None
     else:
-        await ctx.send("You can't stop what you didn't start!")
+        await ctx.send("Player instance not found.")
 
 
 @bot.command(name='skip')
 async def skip(ctx):
-    player = get_player(ctx.guild)
+    player = music_players.get(ctx.guild)
     if player:
-        player.skip()
+        await ctx.send(f"Skipped {player.get_current_song().title}.")
+        player.vc.stop()
 
 
 @bot.command(name='list')
-async def playlist(ctx):
-    player = get_player(ctx.guild)
+async def print_list(ctx):
+    player = music_players.get(ctx.guild)
     if player:
-        response = str(player.playlist)
+        response = player.print_queue()
     else:
-        response = "There is no playlist, because YOU DIDN'T INVITE ME!"
+        response = "Player instance not found."
     await ctx.send(response)
 
 
 @bot.command(name='autoplay')
 async def toggle_auto_play(ctx):
-    player = get_player(ctx.guild)
+    player = music_players.get(ctx.guild)
     if player:
         player.autoplay = not player.autoplay
-        await ctx.send(f'Autoplay set to {player.autoplay}')
+        await ctx.send(f'autoplay set to {player.autoplay}.')
 
 
 @bot.command(name='repeat')
 async def toggle_repeat(ctx):
-    player = get_player(ctx.guild)
+    player = music_players.get(ctx.guild)
     if player:
         player.repeat = not player.repeat
-        await ctx.send(f'Repeat mode: {player.repeat}.')
+        await ctx.send(f'repeat set to {player.repeat}.')
 
-
-def get_player(guild):
-    # returns the player running in the clients server, returning none if none is found
-    for p in players:
-        if p.voice_client.guild == guild:
-            return p
-    return None
-
-
-async def new_player(ctx):
-    if get_player(ctx.guild) is None:
-        players.append(audio_player.AudioPlayer())
-        await players[len(players) - 1].join(ctx)
-        return 'New player initialized'
-    else:
-        return 'Player already exists'
 
     #######################
     #  special functions  #
