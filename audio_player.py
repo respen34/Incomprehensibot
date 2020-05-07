@@ -18,29 +18,6 @@ def identify_source(source):
         return 's'
 
 
-def search(query):
-    title = 'song'
-    print('searching')
-    command = ['youtube-dl', f'ytsearch1:"{query}"', '-x', '--audio-format', 'mp3', f'-o{title}.%(ext)s']
-    subprocess.run(command)
-    return f'{title}.mp3'
-
-
-def download(video_url):
-    title = 'song'
-    ydl_opts = {
-        'quiet': 'True', 'noplaylist': 'True', 'outtmpl': f'{title}.%(ext)s',
-        'format': 'bestaudio/best', 'postprocessors': [{'key': 'FFmpegExtractAudio',
-                                                        'preferredcodec': 'mp3',
-                                                        'preferredquality': '192', },
-                                                       {'key': "FFmpegMetadataPP"}],
-    }
-    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([video_url])
-
-    return f'{title}.mp3'
-
-
 class Playlist:
     class Song:
         def __init__(self, source):
@@ -122,7 +99,7 @@ class Playlist:
 
     def add_song(self, source):
         self.queue.append(self.Song(source))
-        # if next up, predownloads
+        # if next up, predownload
         if len(self.queue) == 2:
             self.download(self.queue[1])
 
@@ -163,7 +140,7 @@ class Playlist:
         try:
             if song.type == "s":
                 command = ['youtube-dl', f'ytsearch1:"{song.source}"',
-                           '-x', '--audio-format', 'mp3', f'-o{title}.%(ext)s']
+                           '-x', '-q', '--audio-format', 'mp3', f'-o{title}.%(ext)s']
                 subprocess.run(command)
                 song.source = f'{title}.mp3'
             elif song.type == "yt":
