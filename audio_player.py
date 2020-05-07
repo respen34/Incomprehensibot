@@ -122,12 +122,13 @@ class Playlist:
 
     def add_song(self, source):
         self.queue.append(self.Song(source))
+        # if next up, predownloads
         if len(self.queue) == 2:
-            self.download(self.queue[0])
+            self.download(self.queue[1])
 
     def add_folder(self, folder):
         if ":\\" not in folder:
-            folder = f'{MUSIC_DIR}{folder}'
+            folder = f'C:\\Users\\respen34\\Music\\{folder}'
         if not os.path.exists(folder):
             return f"Path not found: {folder}"
         dir_list = [folder]
