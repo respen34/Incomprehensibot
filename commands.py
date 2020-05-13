@@ -120,6 +120,11 @@ async def post(ctx, message, guild, channel):
 
 @bot.command(name='opt-in')
 async def add_role(ctx):
+    """
+    Get added to the @all role
+    :param ctx: Discord context
+    :return:
+    """
     member = ctx.author
     role = ctx.guild.roles[1]
     await member.add_roles(role)
@@ -128,6 +133,11 @@ async def add_role(ctx):
 
 @bot.command(name='opt-out')
 async def remove_role(ctx):
+    """
+    Get removed from the @all role
+    :param ctx: Discord context
+    :return:
+    """
     member = ctx.author
     role = ctx.guild.roles[1]
     await member.remove_roles(role)
@@ -163,7 +173,6 @@ timer = None
 
 @bot.command(name='cornwall_timer')
 async def cornwall_timer(ctx, set_time: int = 0):
-    # todo check for an existing timer, if it exists flip the is_running param, else make a new Timer instance
     global timer
     if timer is None:
         timer = Timer(ctx, set_time)
@@ -184,7 +193,11 @@ async def new_player(ctx):
 
 @bot.command(name='join')
 async def join(ctx):
-    # adds bot to current voice chat
+    """
+    adds bot to current voice chat
+    :param ctx: Discord context
+    :return:
+    """
     global music_players
     if music_players.get(ctx.guild) is None:
         await new_player(ctx)
@@ -192,11 +205,17 @@ async def join(ctx):
 
 @bot.command(name='leave')
 async def leave(ctx):
-    # kicks bot from voice chat
+    """
+    kicks bot from voice chat
+    :param ctx: Discord context
+    :return:
+    """
     global music_players
-    music_player = music_players.get(ctx.guild)
-    if music_player is not None:
-        await music_player.vc.disconnect()
+    player = music_players.get(ctx.guild)
+    if player is not None:
+        if player.vc.is_playing:
+            player.pause()
+        await player.vc.disconnect()
         music_players[ctx.guild] = None
         response = 'Alright, see ya.'
     else:
@@ -242,6 +261,11 @@ async def play_audio(ctx, *args):
 
 @bot.command(name='stop')
 async def stop(ctx):
+    """
+    stops bot and clears playlist
+    :param ctx: Discord context
+    :return:
+    """
     player = music_players.get(ctx.guild)
     if player:
         player.vc.stop()
@@ -253,6 +277,11 @@ async def stop(ctx):
 
 @bot.command(name='pause')
 async def pause(ctx):
+    """
+    pauses/unpauses current audio stream
+    :param ctx: Discord context
+    :return:
+    """
     player = music_players.get(ctx.guild)
     if not player:
         await ctx.send("Wait a minute, I'm not even in voice. What'r you tryin' to pull here?")
@@ -271,6 +300,11 @@ async def pause(ctx):
 
 @bot.command(name='skip')
 async def skip(ctx):
+    """
+    skips currently playing song
+    :param ctx: Discord context
+    :return:
+    """
     player = music_players.get(ctx.guild)
     if player:
         await ctx.send(f"Skipped {player.get_current_song().title}.")
@@ -279,6 +313,11 @@ async def skip(ctx):
 
 @bot.command(name='list')
 async def print_list(ctx):
+    """
+    lists the first 10 songs in the queue
+    :param ctx: Discord context
+    :return:
+    """
     player = music_players.get(ctx.guild)
     if player:
         response = player.print_queue()
@@ -289,26 +328,41 @@ async def print_list(ctx):
 
 @bot.command(name='autoplay')
 async def toggle_auto_play(ctx):
+    """
+    Toggles autoplay
+    :param ctx: Discord context
+    :return:
+    """
     player = music_players.get(ctx.guild)
     if player:
         player.autoplay(not player.autoplay)
-        await ctx.send(f'autoplay set to {player.autoplay}.')
+        await ctx.send(f'Autoplay set to {player.autoplay}')
 
 
 @bot.command(name='repeat')
 async def toggle_repeat(ctx):
+    """
+    Toggles repeat
+    :param ctx: Discord context
+    :return:
+    """
     player = music_players.get(ctx.guild)
     if player:
         player.set_repeat(not player.repeat)
-        await ctx.send(f'repeat set to {player.repeat}.')
+        await ctx.send(f'Repeat set to {player.repeat}')
 
 
 @bot.command(name='shuffle')
 async def shuffle_queue(ctx):
+    """
+    Toggles shuffle
+    :param ctx: Discord context
+    :return:
+    """
     player = music_players.get(ctx.guild)
     if player:
         player.set_shuffle(not player.shuffle)
-        await ctx.send(f'repeat set to {player.shuffle}.')
+        await ctx.send(f'Shuffle set to {player.shuffle}')
 
     #######################
     #  special functions  #
