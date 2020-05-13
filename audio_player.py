@@ -24,9 +24,11 @@ def identify_source(source):
 
 class Playlist:
     class Song:
-        def __init__(self, source):
+        def __init__(self, source, source_type=None):
             self.source = source
-            self.type = identify_source(source)
+            self.type = source_type
+            if not source_type:
+                self.type = identify_source(source)
             self.title = source
             self.artist = "unknown"
             self.downloaded = False
@@ -35,7 +37,7 @@ class Playlist:
                 self.get_info()
 
         def get_info(self):
-            if self.type == "f":
+            if self.type in ("f", "u"):
                 if not os.path.exists(self.source):
                     return
                 song = mutagen.File(self.source, None, True)
@@ -57,6 +59,11 @@ class Playlist:
                     if title is not None and len(title) > 0:
                         self.title = title[0]
 
+        def cleanup(self):
+            if self.type == "u":
+                if os.path.exists(self.source):
+                    os.remove(self.source)
+
     def __init__(self, voice_client):
         self.queue = []
         self.auto_queue = self.get_auto_playlist()
@@ -66,24 +73,36 @@ class Playlist:
         self.vc = voice_client
 
     def play_next(self):
+        if not len(self.queue):
+            # if queue is empty break
+            return
         if not self.repeat:
+            # remove last played
+            self.queue[0].cleanup()
             self.queue.pop(0)
-            if self.shuffle:
-                # move a random song in queue to the front
-                self.queue.insert(0, self.queue.pop(random.randint(0, len(self.queue))))
         self.play()
 
     def play(self):
         if not len(self.queue):
             if not self.autoplay:
+                # if not autoplay, end audio stream
                 return
+            # pick a new track at random from auto_queue
             while len(self.queue) == 0:
                 self.add_song(self.auto_queue.pop(random.randint(0, len(self.auto_queue) - 1)))
             if len(self.auto_queue) == 0:
                 self.auto_queue = self.get_auto_playlist()
 
+        # (alt version) if self.shuffle and not self.repeat:
+        # repeat takes priority
+        # below shuffle takes priority, if repeat and shuffle are both on it will shuffle the playlist without delete
+        if self.shuffle and len(self.queue) > 1:
+            # move a random song in queue to the front
+            self.queue.insert(0, self.queue.pop(random.randint(1, len(self.queue) - 1)))
+
         if not self.queue[0].downloaded:
             if not self.download(self.queue[0]):  # clean this up at some point
+                # download failed
                 self.play()
                 return
         source = self.queue[0].source
@@ -92,10 +111,10 @@ class Playlist:
             self.vc.play(discord.FFmpegPCMAudio(source), after=lambda e: self.play_next())
             # print(f"downloading next...")
             # downloads next song in queue
-            if len(self.queue) > 1:
+            if not self.shuffle and len(self.queue) > 1:
                 self.download(self.queue[1])
         else:
-            print(f"couldn't play source {source}")
+            print(f"couldn't find source: {source}")
             self.play_next()
 
     def get_current_song(self):
@@ -109,6 +128,13 @@ class Playlist:
         # if next up, predownload
         if len(self.queue) == 2:
             self.download(self.queue[1])
+
+    def add_next(self, source):
+        if len(self.queue) > 1:
+            self.queue.insert(1, self.Song(source))
+            self.download(self.queue[1])
+        else:
+            self.add_song(source)
 
     def add_folder(self, folder):
         if ":\\" not in folder:
@@ -130,10 +156,27 @@ class Playlist:
         self.queue.extend(playlist)
 
     def add_list(self, path):
+        # todo: add playlist from youtube or text file or written list of sources separated by ','
         pass
 
-    def add_next(self, source):
-        self.queue.insert(1, self.Song(source))
+    async def add_upload(self, attachment):
+        # todo: work in progress version, allows user to upload a small mp3 and play it on the bot
+        # has a few incompatibilities with the download function
+        title = attachment.filename
+        if ".mp3" not in title:
+            return
+        await attachment.save(title)
+        self.queue.append(self.Song(title, "u"))
+
+    def move(self, start, end):
+        if start < len(self.queue) and end < len(self.queue):
+            self.queue.insert(end, self.queue.pop(start))
+            return True
+        return False
+
+    def remove(self, index):
+        if index < len(self.queue):
+            self.queue.pop(index)
 
     def set_repeat(self, repeat):
         self.repeat = repeat
@@ -175,6 +218,10 @@ class Playlist:
             print(f"{song.source} failed to download")
             self.queue.remove(song)
             return False
+
+    def download_next(self):
+        if len(self.queue) > 1:
+            self.download(self.queue[1])
 
     @staticmethod
     def get_auto_playlist():

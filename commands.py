@@ -3,7 +3,7 @@
 import asyncio
 import codecs
 import datetime
-import json
+# import json
 import pickle
 import os
 import discord
@@ -213,8 +213,6 @@ async def leave(ctx):
     global music_players
     player = music_players.get(ctx.guild)
     if player is not None:
-        if player.vc.is_playing:
-            player.pause()
         await player.vc.disconnect()
         music_players[ctx.guild] = None
         response = 'Alright, see ya.'
@@ -250,6 +248,13 @@ async def play_audio(ctx, *args):
         elif args[0] == "-next":
             # adds a song to the front of the queue
             player.add_next(" ".join(args[1:len(args)]))
+        elif args[0] == "-upload":
+            # grabs a song from an embed
+            attachments = ctx.message.attachments
+            if len(attachments):
+                await player.add_upload(ctx.message.attachments[0])
+            else:
+                await ctx.send("Attachment not found.")
         else:
             source = " ".join(args)
             if len(source) > 0:
@@ -257,6 +262,21 @@ async def play_audio(ctx, *args):
 
     if not (player.vc.is_playing()):
         player.play()
+
+
+@bot.command(name='move')
+async def move(ctx, start: int, end: int):
+    player = music_players.get(ctx.guild)
+    if player:
+        if player.move(start, end):
+            await ctx.send(f"Moved {player.queue[end].title} to {end}")
+
+
+@bot.command(name='remove')
+async def remove(ctx, index: int):
+    player = music_players.get(ctx.guild)
+    if player:
+        player.remove(index)
 
 
 @bot.command(name='stop')
@@ -268,6 +288,7 @@ async def stop(ctx):
     """
     player = music_players.get(ctx.guild)
     if player:
+        player.queue = []
         player.vc.stop()
         await player.vc.disconnect()
         music_players[ctx.guild] = None
@@ -335,7 +356,7 @@ async def toggle_auto_play(ctx):
     """
     player = music_players.get(ctx.guild)
     if player:
-        player.autoplay(not player.autoplay)
+        player.set_autoplay(not player.autoplay)
         await ctx.send(f'Autoplay set to {player.autoplay}')
 
 
@@ -758,10 +779,10 @@ def lookup_player(user):
 
 async def inform(player, tile, message):
     # sends message to all players on a tile about what is happening
-    players = tile.players
+    players_to_message = tile.players
 
-    if len(players) > 0:
-        for p in players:
+    if len(players_to_message) > 0:
+        for p in players_to_message:
             if player != p:
                 await p.user.send(message)
 
