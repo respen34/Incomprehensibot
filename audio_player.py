@@ -61,16 +61,19 @@ class Playlist:
         self.queue = []
         self.auto_queue = self.get_auto_playlist()
         self.repeat = False
+        self.shuffle = False
         self.autoplay = True
         self.vc = voice_client
 
     def play_next(self):
         if not self.repeat:
             self.queue.pop(0)
+            if self.shuffle:
+                # move a random song in queue to the front
+                self.queue.insert(0, self.queue.pop(random.randint(0, len(self.queue))))
         self.play()
 
     def play(self):
-
         if not len(self.queue):
             if not self.autoplay:
                 return
@@ -129,8 +132,17 @@ class Playlist:
     def add_list(self, path):
         pass
 
+    def add_next(self, source):
+        self.queue.insert(1, self.Song(source))
+
     def set_repeat(self, repeat):
         self.repeat = repeat
+
+    def set_shuffle(self, shuffle):
+        self.shuffle = shuffle
+
+    def set_autoplay(self, autoplay):
+        self.autoplay = autoplay
 
     def gen_title(self):
         if len(self.queue) != 0:
@@ -140,7 +152,7 @@ class Playlist:
 
     def download(self, song):
         title = self.gen_title()
-        print(f"downloading {song.source}, {song.type}")
+        # print(f"downloading {song.source}, {song.type}")
         try:
             if song.type == "s":
                 command = ['youtube-dl', f'ytsearch1:"{song.source}"',

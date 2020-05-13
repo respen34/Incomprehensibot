@@ -28,7 +28,6 @@ async def run_once():
     global hasRun
     if not hasRun:
         hasRun = True
-        await bot.change_presence(activity=discord.CustomActivity(name="Taming lions in Antarctica"))
         await initialize_counting_game()
         await fanny_pack_friday()
 
@@ -36,6 +35,8 @@ async def run_once():
 @bot.event
 async def on_ready():
     print(f'{bot.user.name} is connected to the discord!')
+    game = discord.Game(name="Cave_Mover")
+    await bot.change_presence(activity=game)
     # load_data()
     await run_once()
     print('This is test text')
@@ -183,6 +184,7 @@ async def new_player(ctx):
 
 @bot.command(name='join')
 async def join(ctx):
+    # adds bot to current voice chat
     global music_players
     if music_players.get(ctx.guild) is None:
         await new_player(ctx)
@@ -190,6 +192,7 @@ async def join(ctx):
 
 @bot.command(name='leave')
 async def leave(ctx):
+    # kicks bot from voice chat
     global music_players
     music_player = music_players.get(ctx.guild)
     if music_player is not None:
@@ -225,6 +228,9 @@ async def play_audio(ctx, *args):
         elif args[0] == "-list":
             # adds all songs from a text file of sources
             player.add_list(" ".join(args[1:len(args)]))
+        elif args[0] == "-next":
+            # adds a song to the front of the queue
+            player.add_next(" ".join(args[1:len(args)]))
         else:
             source = " ".join(args)
             if len(source) > 0:
@@ -232,24 +238,6 @@ async def play_audio(ctx, *args):
 
     if not (player.vc.is_playing()):
         player.play()
-
-
-@bot.command(name='pause')
-async def pause(ctx):
-    player = music_players.get(ctx.guild)
-    if player:
-        vc = player.vc
-        if vc.is_playing():
-            vc.pause()
-            response = 'The player has been paused.'
-        elif vc.is_paused():
-            vc.resume()
-            response = 'The player has been unpaused.'
-        else:
-            response = 'The playlist is empty.'
-    else:
-        response = "Wait a minute, I'm not even in voice. What'r you tryin' to pull here?"
-    await ctx.send(response)
 
 
 @bot.command(name='stop')
@@ -261,6 +249,24 @@ async def stop(ctx):
         music_players[ctx.guild] = None
     else:
         await ctx.send("Player instance not found.")
+
+
+@bot.command(name='pause')
+async def pause(ctx):
+    player = music_players.get(ctx.guild)
+    if not player:
+        await ctx.send("Wait a minute, I'm not even in voice. What'r you tryin' to pull here?")
+        return
+    vc = player.vc
+    if vc.is_playing():
+        vc.pause()
+        response = 'The player has been paused.'
+    elif vc.is_paused():
+        vc.resume()
+        response = 'The player has been unpaused.'
+    else:
+        response = 'The playlist is empty.'
+    await ctx.send(response)
 
 
 @bot.command(name='skip')
@@ -285,7 +291,7 @@ async def print_list(ctx):
 async def toggle_auto_play(ctx):
     player = music_players.get(ctx.guild)
     if player:
-        player.autoplay = not player.autoplay
+        player.autoplay(not player.autoplay)
         await ctx.send(f'autoplay set to {player.autoplay}.')
 
 
@@ -293,8 +299,16 @@ async def toggle_auto_play(ctx):
 async def toggle_repeat(ctx):
     player = music_players.get(ctx.guild)
     if player:
-        player.repeat = not player.repeat
+        player.set_repeat(not player.repeat)
         await ctx.send(f'repeat set to {player.repeat}.')
+
+
+@bot.command(name='shuffle')
+async def shuffle_queue(ctx):
+    player = music_players.get(ctx.guild)
+    if player:
+        player.set_shuffle(not player.shuffle)
+        await ctx.send(f'repeat set to {player.shuffle}.')
 
     #######################
     #  special functions  #
