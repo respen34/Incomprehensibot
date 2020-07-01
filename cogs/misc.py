@@ -4,9 +4,9 @@ from discord.ext import commands
 
 
 # word lists
-officialThreeWords = ThreeWords(f'otw.txt')
-randomThreeWords = ThreeWords(f'randwords.txt')
-cardList = ThreeWords(f'White Cards.txt')
+officialThreeWords = ThreeWords('./data/otw.txt')
+randomThreeWords = ThreeWords('./data/randwords.txt')
+cardList = ThreeWords('./data/White Cards.txt')
 
 
 class Misc(commands.Cog):

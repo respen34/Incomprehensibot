@@ -60,9 +60,9 @@ async def on_message(message):
 
 
 # 3 different word lists to pull from.
-officialThreeWords = ThreeWords(f'otw.txt')
-randomThreeWords = ThreeWords(f'randwords.txt')
-cardList = ThreeWords(f'White Cards.txt')
+officialThreeWords = ThreeWords('otw.txt')
+randomThreeWords = ThreeWords('randwords.txt')
+cardList = ThreeWords('White Cards.txt')
 
 
 @bot.command(name='random')
