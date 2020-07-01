@@ -1,4 +1,4 @@
-# commands.py version 1.1.02
+# commands.py version 1.2.03
 # called by bot.py to initialize commands
 import asyncio
 import codecs
@@ -14,7 +14,7 @@ from maze import *
 
 from ThreeWords import ThreeWords
 
-os.chdir(os.getcwd() + "\\data\\")
+os.chdir('./data')
 
 players = {}
 save_on = False  # save still broken, something with the maze dict not reinitialising properly
@@ -53,14 +53,6 @@ async def on_message_delete(message):
 @bot.event
 async def on_message(message):
     await bot.process_commands(message)
-
-
-""""@bot.event
-async def on_disconnect():
-    global music_players
-    for guild in music_players:
-        await music_players[guild].vc.disconnect()
-    music_players = {}"""
 
     ###################
     #  text commands  #
@@ -491,6 +483,7 @@ async def counting_game(ctx, number: int):
         await channel.edit(topic=topic)
     if message:
         await ctx.send(message)
+    # save state to data file
     with open(f'countinggame.dat', 'w+b') as file:
         pickle.dump(countingGameInstance, file)
 
@@ -520,6 +513,7 @@ async def initialize_counting_game():
     if countingGameInstance.high_score > high_score:
         await channel.edit(topic=f'highscore: {countingGameInstance.high_score}')
 
+    # save state to data file
     with open(f'countinggame.dat', 'w+b') as file:
         pickle.dump(countingGameInstance, file)
 
@@ -858,7 +852,3 @@ else:
         with open(f'cave.dat', 'x') as f:
             print("new cave initialized")
         save_data()
-
-    ############################
-    #  Cards Against Humanity  #
-    ############################
