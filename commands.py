@@ -14,7 +14,6 @@ from maze import *
 
 from ThreeWords import ThreeWords
 
-exec(open('maze.py').read())  # code for the cave runner game
 os.chdir(os.getcwd() + "\\data\\")
 
 players = {}
@@ -39,7 +38,6 @@ async def on_ready():
     await bot.change_presence(activity=game)
     # load_data()
     await run_once()
-    print('This is test text')
 
 
 """@bot.event
@@ -57,12 +55,12 @@ async def on_message(message):
     await bot.process_commands(message)
 
 
-@bot.event
+""""@bot.event
 async def on_disconnect():
     global music_players
-    for music_player in music_players:
-        await music_player.vc.disconnect()
-    music_players = {}
+    for guild in music_players:
+        await music_players[guild].vc.disconnect()
+    music_players = {}"""
 
     ###################
     #  text commands  #
@@ -239,28 +237,51 @@ async def play_audio(ctx, *args):
         player = music_players.get(ctx.guild)
 
     if len(args) > 0:
-        if args[0] == "-folder":
-            # adds all songs in the specified folder and sub folders
-            player.add_folder(" ".join(args[1:len(args)]))
-        elif args[0] == "-list":
-            # adds all songs from a text file of sources
-            player.add_list(" ".join(args[1:len(args)]))
-        elif args[0] == "-next":
-            # adds a song to the front of the queue
-            player.add_next(" ".join(args[1:len(args)]))
-        elif args[0] == "-upload":
-            # grabs a song from an embed
+
+        if args[0] in ("-folder", "-list", "-next"):
+            source = " ".join(args[1:len(args)])
+        elif args[0] == "-file":
             attachments = ctx.message.attachments
             if len(attachments):
-                await player.add_upload(ctx.message.attachments[0])
+                source = attachments[0]
             else:
                 await ctx.send("Attachment not found.")
+                return
         else:
             source = " ".join(args)
-            if len(source) > 0:
-                player.add_song(source)
 
-    if not (player.vc.is_playing()):
+        if player.search_results and source.isnumeric():
+            # if search was run check for user selection
+            index = int(source)
+            if index >= len(player.search_results):
+                await ctx.send("Invalid index.")
+                return
+            # if chosen index is valid, add the corresponding song
+            source = "https://www.youtube.com" + player.search_results[index].get('link')
+            player.search_results = None
+
+        if args[0] == "-folder":
+            # adds all songs in the specified folder and sub folders
+            player.add_folder(source)
+        elif args[0] == "-list":
+            # adds all songs from a text file of sources
+            player.add_list(source)
+        elif args[0] == "-next":
+            # adds a song to the front of the queue
+            player.add_next(source)
+        elif args[0] == "-file":
+            # grabs a song from an embed
+            await player.add_upload(source)
+        else:
+            if len(source) > 0:
+                song = player.add_song(source)
+                if song == "s":
+                    await ctx.send(f"Search results:\n{player.print_search()}Respond with '~play [n]' to add.")
+                    return
+                else:
+                    await ctx.send(f" Added: {song} to the queue.")
+
+    if not player.vc.is_playing():
         player.play()
 
 
@@ -276,6 +297,9 @@ async def move(ctx, start: int, end: int):
 async def remove(ctx, index: int):
     player = music_players.get(ctx.guild)
     if player:
+        if index == 0:
+            player.vc.stop()
+            return
         player.remove(index)
 
 
@@ -417,7 +441,7 @@ async def fanny_pack_friday():
     guild = discord.utils.get(bot.guilds, name='Incomprehensible Games')
     channel = discord.utils.get(guild.channels, name='image-surveillance')
     await channel.send('It is fanny pack friday!',
-                       file=discord.File(r'C:\Users\respen34\Videos\I miss you clifford.mp4'))
+                       file=discord.File(';lkaypoi2374509123n4pds0f9877akj123;l459p-837409u0u0-uklfjpasdo;klzxjcpl;j---adsf;lk32-asfl;ahdfl;kja4.mp4'))
     print('I gotta tell ya, I just feel super about it.')
     await asyncio.sleep(10)
     await fanny_pack_friday()

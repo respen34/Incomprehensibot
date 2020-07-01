@@ -2,6 +2,7 @@
 import subprocess
 import discord
 import youtube_dl
+import youtube_search
 import random
 import mutagen
 import os
@@ -16,7 +17,7 @@ def identify_source(source):
     # tags the source input to tell the player what to do with it
     if 'youtube.com/watch?v=' in source:
         return 'yt'
-    elif ':\\' in source and ('.mp3' in source or '.flac' in source or '.wav' in source or '.m4a' in source):
+    elif os.path.exists(source) and ('.mp3' in source or '.flac' in source or '.wav' in source or '.m4a' in source):
         return 'f'
     else:
         return 's'
@@ -66,11 +67,12 @@ class Playlist:
 
     def __init__(self, voice_client):
         self.queue = []
+        self.vc = voice_client
         self.auto_queue = self.get_auto_playlist()
         self.repeat = False
         self.shuffle = False
         self.autoplay = True
-        self.vc = voice_client
+        self.search_results = None
 
     def play_next(self):
         if not len(self.queue):
@@ -107,14 +109,14 @@ class Playlist:
                 return
         source = self.queue[0].source
         if os.path.exists(source):
-            print(f"playing {source}")
+            print(f">playing {source}")
             self.vc.play(discord.FFmpegPCMAudio(source), after=lambda e: self.play_next())
             # print(f"downloading next...")
             # downloads next song in queue
             if not self.shuffle and len(self.queue) > 1:
                 self.download(self.queue[1])
         else:
-            print(f"couldn't find source: {source}")
+            print(f"[source not found]: {source}")
             self.play_next()
 
     def get_current_song(self):
@@ -124,10 +126,15 @@ class Playlist:
             return None
 
     def add_song(self, source):
-        self.queue.append(self.Song(source))
-        # if next up, predownload
+        song = self.Song(source)
+        if song.type == "s":
+            self.search(source)
+            return "s"
+        self.queue.append(song)
+        # if next up, pre-download
         if len(self.queue) == 2:
             self.download(self.queue[1])
+        return song.title
 
     def add_next(self, source):
         if len(self.queue) > 1:
@@ -140,7 +147,7 @@ class Playlist:
         if ":\\" not in folder:
             folder = f'{MUSIC_DIR}\\{folder}'
         if not os.path.exists(folder):
-            return f"Path not found: {folder}"
+            return f"[Path not found]: {folder}"
         dir_list = [folder]
 
         playlist = []
@@ -163,10 +170,9 @@ class Playlist:
         # todo: work in progress version, allows user to upload a small mp3 and play it on the bot
         # has a few incompatibilities with the download function
         title = attachment.filename
-        if ".mp3" not in title:
-            return
-        await attachment.save(title)
-        self.queue.append(self.Song(title, "u"))
+        if ".mp3" in title or ".wav" in title or ".flac" in title:
+            await attachment.save(title)
+            self.queue.append(self.Song(title, "u"))
 
     def move(self, start, end):
         if start < len(self.queue) and end < len(self.queue):
@@ -223,6 +229,17 @@ class Playlist:
         if len(self.queue) > 1:
             self.download(self.queue[1])
 
+    def search(self, search_terms):
+        self.search_results = youtube_search.YoutubeSearch(search_terms, max_results=5).to_dict()
+
+    def print_search(self):
+        if not self.search_results:
+            return ""
+        output_string = ""
+        for n in range(len(self.search_results)):
+            output_string += f"{n}. {self.search_results[n].get('title')}\n"
+        return output_string
+
     @staticmethod
     def get_auto_playlist():
         playlist = []
@@ -248,10 +265,10 @@ class Playlist:
         return playlist
 
     def print_queue(self):
-        toReturn = ""
+        to_return = ""
         for n in range(10):
             if n >= len(self.queue):
                 break
             song = self.queue[n]
-            toReturn += f"{n}. {song.title} by {song.artist} \n"
-        return toReturn
+            to_return += f"{n}. {song.title} by {song.artist} \n"
+        return to_return
