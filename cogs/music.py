@@ -1,5 +1,6 @@
 import discord
 import audio_player
+import os
 from discord.ext import commands
 
 
@@ -230,3 +231,7 @@ class Music(commands.Cog):
 
 def setup(bot):
     bot.add_cog(Music(bot))
+
+
+def teardown(bot):
+    pass
