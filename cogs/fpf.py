@@ -16,9 +16,9 @@ class FPF(commands.Cog):
             self.hasRun = True
             await self.fanny_pack_friday()
 
-    def get_channel(self, guild, channel):
-        guild = discord.utils.get(self.bot.guilds, name=guild)
-        channel = discord.utils.get(guild.channels, name=channel)
+    def get_channel(self, guild_name, channel_name):
+        guild = discord.utils.get(self.bot.guilds, name=guild_name)
+        channel = discord.utils.get(guild.channels, name=channel_name)
         return channel
 
     async def fanny_pack_friday(self):
@@ -29,9 +29,7 @@ class FPF(commands.Cog):
         guild = discord.utils.get(self.bot.guilds, name='Incomprehensible Games')
         channel = discord.utils.get(guild.channels, name='image-surveillance')
         await channel.send('It is fanny pack friday!',
-                           file=discord.File(
-                               ';lkaypoi2374509123n4pds0f9877akj123;l459p\
-                               -837409u0u0-uklfjpasdo;klzxjcpl;j---adsf;lk32-asfl;ahdfl;kja4.mp4'))
+                           file=discord.File(';lkaypoi2374509123n4pds0f9877akj123;l459p-837409u0u0-uklfjpasdo;klzxjcpl;j---adsf;lk32-asfl;ahdfl;kja4.mp4'))
         print('I gotta tell ya, I just feel super about it.')
         await asyncio.sleep(600)
         await self.fanny_pack_friday()

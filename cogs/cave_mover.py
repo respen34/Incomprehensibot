@@ -11,7 +11,7 @@ class Cave(commands.Cog):
         self.bot = bot
         print("Cave_Mover initialized")
 
-    @commands.command()
+    @commands.command(hidden=True)
     async def example(self, ctx):
         pass
 

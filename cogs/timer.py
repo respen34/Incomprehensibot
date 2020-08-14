@@ -5,7 +5,7 @@ from discord.ext import commands
 
 
 class Timer(commands.Cog):
-    clock = None
+    clocks = []
 
     def __init__(self, bot):
         self.bot = bot
@@ -13,21 +13,27 @@ class Timer(commands.Cog):
 
     @commands.command()
     async def timer(self, ctx, set_time: int = 0):
-        if self.clock is None:
-            self.clock = Clock(ctx, set_time)
-            await self.clock.start()
+        """
+        Stopwatch timer
+        """
+        clock = discord.utils.get(self.clocks, guild=ctx.guild, channel=ctx.message.channel)
+        if clock is None:
+            clock = Clock(ctx, set_time)
+            await clock.start()
         else:
-            await self.clock.stop()
-            self.clock = None
+            await clock.stop()
 
     @commands.command()
-    async def countdown(self, ctx, set_time: int):
-        if self.clock is None:
-            self.clock = Clock(ctx, set_time)
-            await self.clock.countdown(ctx)
+    async def countdown(self, ctx, set_time: int = 60):
+        """
+        Countdown timer
+        """
+        clock = discord.utils.get(self.clocks, guild=ctx.guild, channel=ctx.message.channel)
+        if clock is None:
+            clock = Clock(ctx, set_time)
+            await clock.countdown(ctx)
         else:
-            await self.clock.stop()
-            self.clock = None
+            await clock.stop()
 
 
 def setup(bot):
@@ -35,44 +41,57 @@ def setup(bot):
 
 
 class Clock:
-    def __init__(self, ctx=None, set_time: int = 1):
+    TIMER_TEXT = "{}:{}"
+
+    def __init__(self, ctx, set_time):
         self.current_time = abs(set_time)
         self.is_running = False
-        self.ctx = ctx
+        self.guild = ctx.guild
+        self.channel = ctx.message.channel
+
+        Timer.clocks.append(self)
 
     async def start(self, direction=1):
         self.is_running = True
         start_time = time.time()
-        message = await self.ctx.send(str(self.current_time))
+        message = await self.channel.send(self.TIMER_TEXT.format(self.current_time // 60,
+                                                                 str(self.current_time % 60).zfill(2)))
         self.current_time += direction
         while self.current_time > 0 and self.is_running:
-            await asyncio.sleep(1)
+            await asyncio.sleep(.5)
             self.current_time = int(time.time() - start_time)
             try:
-                await message.edit(content=f"{self.current_time} seconds.")
+                await message.edit(content=self.TIMER_TEXT.format(self.current_time // 60,
+                                                                  str(self.current_time % 60).zfill(2)))
             except:
                 await self.stop()
 
     async def stop(self):
         self.is_running = False
-        await self.ctx.send(f"Timer stopped at {self.current_time} seconds.")
+        Timer.clocks.remove(self)
+        await self.channel.send(f"Timer stopped at " + self.TIMER_TEXT.format(self.current_time // 60,
+                                                                              str(self.current_time % 60).zfill(2)))
 
     async def countdown(self, ctx):
         self.is_running = True
         start_time = time.time()
         time_interval = 0
         max_time = self.current_time
-        message = await self.ctx.send(str(self.current_time))
+
+        message = await self.channel.send((self.TIMER_TEXT.format(self.current_time // 60,
+                                                                  str(self.current_time % 60).zfill(2))))
         while self.current_time - time_interval > 0 and self.is_running:
             await asyncio.sleep(1)
             self.current_time = max_time - int(time.time() - start_time)
             try:
-                await message.edit(content=f"{self.current_time - time_interval} seconds remaining.")
+                await message.edit(content=self.TIMER_TEXT.format(self.current_time // 60,
+                                                                  str(self.current_time % 60).zfill(2)))
             except:
                 await self.stop()
         if self.is_running:
-            for _ in range(30):
-                await asyncio.sleep(2)
-                for member in ctx.message.mentions:
-                    await ctx.send(member.mention)
-        await self.stop()
+            await self.stop()
+            if ctx.message.mentions:
+                for _ in range(30):
+                    await asyncio.sleep(2)
+                    for member in ctx.message.mentions:
+                        await ctx.send(member.mention)

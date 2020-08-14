@@ -1,107 +1,243 @@
 import discord
 import pickle
+import json
 import os
+import random as r
+import math as m
 from discord.ext import commands
 
-client = None
+"""
+Counting game for discord.
+Before counting game can be played on a server
+create a channel for counting game, and run the ~setupCountingGame command in it to initialize the game
+then you're all set.
+"""
+
+COUNTING_GAME_TOPIC = "Counting Game: High Score = {}\n" \
+                      "Rules:\n" \
+                      "Count up to infinity\n" \
+                      "Only enter one number in a row\n" \
+                      "Only enter the next number in the sequence"
+
+
+def is_int(string):
+    try:
+        int(string)
+        return True
+    except ValueError:
+        return False
 
 
 class Games(commands.Cog):
-    hasRun = False
-    countingGameInstance = None
-
-    class CountingGame:
-        def __init__(self, guild, channel):
-            self.count_index = 0
-            self.high_score = 0
-            self.last_player = None
-            self.channel = (guild, channel)
-
-        def input(self, ctx, number):
-            channel = get_channel(self.channel[0], self.channel[1])
-            last = discord.utils.get(channel.guild.members, name=self.last_player)
-            if ctx.author != last and number == self.count_index + 1:
-                self.count_index += 1
-                self.last_player = ctx.author.name
-
-                if self.count_index > self.high_score:
-                    self.high_score = self.count_index
-                    return f'highscore: {self.high_score}', None
-                else:
-                    return None, None
-            else:
-                self.count_index = 0
-                self.last_player = None
-                message = f"Nice job, {ctx.author.name}, you ruined it."
-                if self.high_score == self.count_index:
-                    message += f"\nNew high score: {self.high_score}"
-                return None, message
+    cg_data_path = "./data/cg_instances.json"
 
     def __init__(self, bot):
-        global client
         self.bot = bot
-        client = bot
+        if not os.path.exists(self.cg_data_path):
+            with open(self.cg_data_path, "w") as f:
+                json_object = {}
+                json.dump(json_object, f)
+        # load all counting game instances
+        self.countingGameInstances = None
+        self.load_counting_game()
         print("Games initialized")
 
-    async def run_once(self):
-        if not self.hasRun:
-            self.hasRun = True
-            await self.initialize_counting_game()
+    def save_counting_game(self):
+        with open(self.cg_data_path, "w") as f:
+            json.dump(self.countingGameInstances, f)
 
-    async def initialize_counting_game(self):
-        self.countingGameInstance = self.CountingGame("Incomprehensible Games", "counting-game")
-        if not os.path.exists('countinggame.dat'):
-            with open(f'countinggame.dat', 'w+b') as file:
-                pickle.dump(self.countingGameInstance, file)
-        with open(f'countinggame.dat', 'r+b') as file:
-            self.countingGameInstance = pickle.load(file)
-        channel = get_channel(self.countingGameInstance.channel[0], self.countingGameInstance.channel[1])
-        topic = channel.topic
-        high_score = int(topic[11:len(topic)])
-        count_index = 0
-        last_player = None
-        async for message in channel.history(limit=20):
-            if '~# ' in message.content:
-                count_index = int(message.content[3:len(message.content)])
-                last_player = message.author.name
+    def load_counting_game(self):
+        with open(self.cg_data_path) as f:
+            self.countingGameInstances = json.load(f)
+
+    def get_channel(self, guild_id, channel_id):
+        channel = discord.utils.get(self.bot.get_all_channels(), guild__id=guild_id, id=channel_id)
+        return channel
+
+    def get_stats(self, channel, member=None):
+        instance = self.countingGameInstances[str(channel.guild.id)]
+        if member:
+            member_stats = instance["players"].get(str(member.id))
+            if member_stats is None:
+                return f"No stats found for {member.name}."
+            return f"{member.name}: {member_stats['current']}   |   All Time: {member_stats['points']}"
+
+        else:
+            res = f"High score: {instance['highscore']}\n"
+            for user_id, user_stats in instance["players"].items():
+                if user_stats["current"] > 0:
+                    user = discord.utils.get(channel.guild.members, id=int(user_id))
+                    if user is None:
+                        continue
+                    res += f"{user.name}:\n" \
+                           f"Current: {user_stats['current']}   |" \
+                           f"   All Time: {user_stats['points']}   |   Failures: {user_stats['fails']}\n"
+        return res.rstrip()
+
+    async def give_roles(self, guild):
+        instance = self.countingGameInstances[str(guild.id)]
+        MASTER_THRESHOLD = 500
+        LOSER_THRESHOLD = -200
+        current_max = 0
+        champion = None
+        roles = [discord.utils.get(guild.roles, name=role) for role in ("Counting Champion",
+                                                                        "Counting Master", "Loser")]
+        for player_id, stats in instance["players"].items():
+            member = discord.utils.get(guild.members, id=int(player_id))
+            # remove champion role
+            if roles[0] in member.roles:
+                await member.remove_roles(roles[0])
+            # check for champion status
+            if stats["current"] > current_max:
+                current_max = stats["current"]
+                champion = member
+            # check for master status
+            if stats["points"] >= MASTER_THRESHOLD and roles[1] not in member.roles:
+                await member.add_roles(roles[1])
+            elif roles[1] in member.roles:
+                await member.remove_roles(roles[1])
+            # check for loser status
+            if (stats["points"] <= LOSER_THRESHOLD or stats["fails"] >= 50) and roles[2] not in member.roles:
+                await member.add_roles(roles[2])
+            elif roles[2] in member.roles:
+                await member.remove_roles(roles[2])
+        # give champion rank
+        if instance["last_number"] > 50:
+            await champion.add_roles(roles[0])
+
+    async def retro_check(self, instance, channel):
+        if instance["last_message"] is None:
+            return
+        start_from = await channel.fetch_message(instance["last_message"])
+        async for message in channel.history(limit=None, after=start_from, oldest_first=True):
+            # debug
+            # print(message.content)
+            # start at the last entry
+            # then check every message after that for rule breakage
+            if not is_int(message.content):
+                continue
+            if not await self.input(instance, message, True):
                 break
-        if count_index > self.countingGameInstance.count_index:
-            self.countingGameInstance.count_index = count_index
-            self.countingGameInstance.last_player = last_player
-            if self.countingGameInstance.count_index > self.countingGameInstance.high_score:
-                self.countingGameInstance.high_score = self.countingGameInstance.count_index
-        if self.countingGameInstance.high_score > high_score:
-            await channel.edit(topic=f'highscore: {self.countingGameInstance.high_score}')
 
-        # save state to data file
-        with open(f'countinggame.dat', 'w+b') as file:
-            pickle.dump(self.countingGameInstance, file)
+    async def input(self, instance, message, quite=False):
+        player = message.author.id
+        number = int(message.content)
+        if number == instance["last_number"] + 1 and player != instance["last_player"]:
+            # if correct, update values
+            res = True
+            instance["last_number"] = number
+            instance["last_player"] = player
+            instance["last_message"] = message.id
+
+            # update player stats
+            player_stats = instance["players"].get(str(player))
+            if player_stats is None:
+                player_stats = {"current": 1, "points": 1, "fails": 0}
+            else:
+                player_stats["current"] += 1
+                player_stats["points"] += 1
+            instance["players"][str(player)] = player_stats
+
+            # check for new high score
+            if instance["highscore"] < number:
+                instance["highscore"] = number
+                # await message.channel.edit(topic=COUNTING_GAME_TOPIC.format(instance["highscore"]))
+                if not quite:
+                    await message.channel.edit(topic="High Score: {}".format(instance["highscore"]))
+
+            # if a milestone has been reach, dispense encouragement
+            if number % 50 == 0:
+                await message.channel.send(r.choice(("Great moves, keep it up, proud of you!",
+                                                     "Wow {} already, nice!".format(number),
+                                                     "Well that's one down, and... uh...\n well nice job anyway",
+                                                     "Alright, now your getting somewhere! Kinda...",
+                                                     "Wow {current_number} already, nice!",
+                                                     "Neat, that's very almost impressive",
+                                                     "You're almost close.")))
+        else:
+            # if incorrect, reset values
+            res = False
+            await message.channel.send("Nice job, {}, you ruined it.".format(message.author.name))
+
+            # update player stats
+            failed_player = instance["players"].get(str(player))
+            if failed_player is None:
+                failed_player = {"current": 0, "points": 0, "fails": 1}
+            failed_player["points"] -= m.ceil(instance["last_number"] / 2)
+            failed_player["fails"] += 1
+            instance["players"][str(player)] = failed_player
+
+            instance["last_number"] = 0
+            instance["last_player"] = None
+            instance["last_message"] = None
+            await message.channel.send(f"Stats:\n{self.get_stats(message.channel)}")
+            for player_stats in instance["players"].values():
+                player_stats["current"] = 0
+
+        await self.give_roles(message.channel.guild)
+        self.save_counting_game()
+        return res
+
+    async def initialize_game_instances(self):
+        self.load_counting_game()
+        for guild_id, instance in self.countingGameInstances.items():
+            channel = self.get_channel(int(guild_id), instance["channel"])
+            await self.retro_check(instance, channel)
+            # await channel.edit(topic=COUNTING_GAME_TOPIC.format(instance["highscore"]))
+            await channel.edit(topic="High Score: {}".format(instance["highscore"]))
 
     # events
     @commands.Cog.listener()
     async def on_ready(self):
-        # load_data()
-        await self.run_once()
+        # load data
+        await self.initialize_game_instances()
+
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        if message.author.bot:
+            return
+        if message.guild is None:
+            return
+        game_instance = self.countingGameInstances.get(str(message.guild.id))
+        if game_instance is not None:
+            if is_int(message.content) and message.channel.id == game_instance["channel"]:
+                await self.input(game_instance, message)
 
     # commands
-    @commands.command(name='#')
-    async def counting_game(self, ctx, number: int):
-        topic, message = self.countingGameInstance.input(ctx, number)
-        channel = get_channel(self.countingGameInstance.channel[0], self.countingGameInstance.channel[1])
-        if topic:
-            await channel.edit(topic=topic)
-        if message:
-            await ctx.send(message)
-        # save state to data file
-        with open(f'countinggame.dat', 'w+b') as file:
-            pickle.dump(self.countingGameInstance, file)
+    @commands.command(name="setupCountingGame")
+    async def cg_setup(self, ctx):
+        """
+        Initialize counting game on a TC
+        :param ctx:
+        :return:
+        """
+        guild = ctx.guild
+        channel = ctx.message.channel
+        highscore = 0
+        try:
+            await channel.edit(topic=COUNTING_GAME_TOPIC.format(highscore))
+            instance = {
+                "channel": channel.id,
+                "last_number": 0,
+                "last_player": None,
+                "last_message": None,  # message id of the last message
+                "highscore": highscore,
+                "players": {}  # dict of user ids to number of contributions
+            }
+            self.countingGameInstances[str(guild.id)] = instance
+            # save
+            self.save_counting_game()
+            await ctx.send("Counting Game setup complete.")
+        except:
+            await ctx.send("Counting Game setup failed.")
+
+    @commands.command(name="counting_stats")
+    async def cg_stats(self, ctx):
+        """
+        Returns current game stats
+        """
+        await ctx.send(self.get_stats(ctx.message.channel))
 
 
 def setup(bot):
     bot.add_cog(Games(bot))
-
-
-def get_channel(guild, channel):
-    guild = discord.utils.get(client.guilds, name=guild)
-    channel = discord.utils.get(guild.channels, name=channel)
-    return channel
