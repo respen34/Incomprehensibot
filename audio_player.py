@@ -15,7 +15,7 @@ MUSIC_DIR = os.getenv("MUSIC_DIR")
 
 def identify_source(source):
     # tags the source input to tell the player what to do with it
-    if 'youtube.com/watch?v=' in source:
+    if 'youtube.com/watch?v=' in source or 'youtu.be/':
         return 'yt'
     elif os.path.exists(source) and ('.mp3' in source or '.flac' in source or '.wav' in source or '.m4a' in source):
         return 'f'
@@ -66,8 +66,8 @@ class Playlist:
                     os.remove(self.source)
 
     def __init__(self, voice_client):
-        self.queue = []
-        self.vc = voice_client
+        self.queue = []  # list of Song objects to be played
+        self.vc = voice_client  # the current voice_client connection
         self.auto_queue = self.get_auto_playlist()
         self.repeat = False
         self.shuffle = False
@@ -82,7 +82,10 @@ class Playlist:
             # remove last played
             self.queue[0].cleanup()
             self.queue.pop(0)
-        self.play()
+        try:
+            self.play()
+        except discord.ClientException:
+            return
 
     def play(self):
         if not len(self.queue):
@@ -105,6 +108,7 @@ class Playlist:
         if not self.queue[0].downloaded:
             if not self.download(self.queue[0]):  # clean this up at some point
                 # download failed
+                print()
                 self.play()
                 return
         source = self.queue[0].source

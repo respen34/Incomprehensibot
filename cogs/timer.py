@@ -1,6 +1,7 @@
 import discord
 import time
 import asyncio
+from utils import *
 from discord.ext import commands
 
 
@@ -16,7 +17,7 @@ class Timer(commands.Cog):
         """
         Stopwatch timer
         """
-        clock = discord.utils.get(self.clocks, guild=ctx.guild, channel=ctx.message.channel)
+        clock = get(self.clocks, guild=ctx.guild, channel=ctx.message.channel)
         if clock is None:
             clock = Clock(ctx, set_time)
             await clock.start()
@@ -28,7 +29,7 @@ class Timer(commands.Cog):
         """
         Countdown timer
         """
-        clock = discord.utils.get(self.clocks, guild=ctx.guild, channel=ctx.message.channel)
+        clock = get(self.clocks, guild=ctx.guild, channel=ctx.message.channel)
         if clock is None:
             clock = Clock(ctx, set_time)
             await clock.countdown(ctx)
@@ -51,26 +52,26 @@ class Clock:
 
         Timer.clocks.append(self)
 
+    def format_time(self, seconds):
+        return self.TIMER_TEXT.format(seconds // 60, str(seconds % 60).zfill(2))
+
     async def start(self, direction=1):
         self.is_running = True
         start_time = time.time()
-        message = await self.channel.send(self.TIMER_TEXT.format(self.current_time // 60,
-                                                                 str(self.current_time % 60).zfill(2)))
+        message = await self.channel.send(self.format_time(self.current_time))
         self.current_time += direction
         while self.current_time > 0 and self.is_running:
-            await asyncio.sleep(.5)
+            await asyncio.sleep(1)
             self.current_time = int(time.time() - start_time)
             try:
-                await message.edit(content=self.TIMER_TEXT.format(self.current_time // 60,
-                                                                  str(self.current_time % 60).zfill(2)))
+                await message.edit(content=self.format_time(self.current_time))
             except:
                 await self.stop()
 
     async def stop(self):
         self.is_running = False
         Timer.clocks.remove(self)
-        await self.channel.send(f"Timer stopped at " + self.TIMER_TEXT.format(self.current_time // 60,
-                                                                              str(self.current_time % 60).zfill(2)))
+        await self.channel.send(f"Timer stopped at " + self.format_time(self.current_time))
 
     async def countdown(self, ctx):
         self.is_running = True
@@ -78,14 +79,12 @@ class Clock:
         time_interval = 0
         max_time = self.current_time
 
-        message = await self.channel.send((self.TIMER_TEXT.format(self.current_time // 60,
-                                                                  str(self.current_time % 60).zfill(2))))
+        message = await self.channel.send(self.format_time(self.current_time))
         while self.current_time - time_interval > 0 and self.is_running:
             await asyncio.sleep(1)
             self.current_time = max_time - int(time.time() - start_time)
             try:
-                await message.edit(content=self.TIMER_TEXT.format(self.current_time // 60,
-                                                                  str(self.current_time % 60).zfill(2)))
+                await message.edit(content=self.format_time(self.current_time))
             except:
                 await self.stop()
         if self.is_running:

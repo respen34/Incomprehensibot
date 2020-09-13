@@ -5,6 +5,7 @@ import os
 import random as r
 import math as m
 from discord.ext import commands
+from utils import *
 
 """
 Counting game for discord.
@@ -60,7 +61,9 @@ class Games(commands.Cog):
             member_stats = instance["players"].get(str(member.id))
             if member_stats is None:
                 return f"No stats found for {member.name}."
-            return f"{member.name}: {member_stats['current']}   |   All Time: {member_stats['points']}"
+            return f"{member.name}:\n" \
+                   f"Current: {member_stats['current']}   |" \
+                   f"   All Time: {member_stats['points']}   |   Failures: {member_stats}"
 
         else:
             res = f"High score: {instance['highscore']}\n"
@@ -119,7 +122,7 @@ class Games(commands.Cog):
             if not await self.input(instance, message, True):
                 break
 
-    async def input(self, instance, message, quite=False):
+    async def input(self, instance, message, quiet=False):
         player = message.author.id
         number = int(message.content)
         if number == instance["last_number"] + 1 and player != instance["last_player"]:
@@ -142,18 +145,22 @@ class Games(commands.Cog):
             if instance["highscore"] < number:
                 instance["highscore"] = number
                 # await message.channel.edit(topic=COUNTING_GAME_TOPIC.format(instance["highscore"]))
-                if not quite:
+                if not quiet:
                     await message.channel.edit(topic="High Score: {}".format(instance["highscore"]))
 
             # if a milestone has been reach, dispense encouragement
             if number % 50 == 0:
-                await message.channel.send(r.choice(("Great moves, keep it up, proud of you!",
-                                                     "Wow {} already, nice!".format(number),
-                                                     "Well that's one down, and... uh...\n well nice job anyway",
-                                                     "Alright, now your getting somewhere! Kinda...",
-                                                     "Wow {current_number} already, nice!",
-                                                     "Neat, that's very almost impressive",
-                                                     "You're almost close.")))
+                insert = r.choices((number, "{current_number}", number // r.randint(2, 5), r.randint(-number, number)),
+                                   (.70, .25, .04, .01))[0]
+                response = r.choice(("{}. Great moves, keep it up, proud of you!",
+                                     "Wow {} already, nice!",
+                                     "{}? That's... uh...\n good?",
+                                     "Alright, {} now your getting somewhere! Kinda...",
+                                     "Neat, {} is very almost impressive.",
+                                     "Wow {}? You're almost close.",
+                                     "Nice work on making it to {}!",
+                                     "{}. That's a multiple of 50 if I've ever seen one.")).format(insert)
+                await message.channel.send(response)
         else:
             # if incorrect, reset values
             res = False
@@ -237,6 +244,60 @@ class Games(commands.Cog):
         Returns current game stats
         """
         await ctx.send(self.get_stats(ctx.message.channel))
+
+    # TIC TAC TOE
+    # Helper functions
+    class TicTacToe:
+        games = {}
+
+        def __init__(self, message, user):
+            self.games[message] = self
+            self.board = [0 for _ in range(9)]
+            self.player = user
+            self.print_board()
+
+
+        def check_win(self):
+            # horizontal test
+            for n in range(3):
+                check = sum(self.board[n * 3:n * 3 + 3])
+                if check == 3:
+                    return "X"
+                if check == -3:
+                    return "O"
+            # vertical test
+            for n in range(3):
+                check = sum(self.board[n:n + 7:3])
+                if check == 3:
+                    return "X"
+                if check == -3:
+                    return "O"
+            # diagonal test
+            d1 = sum(self.board[0:9:4])
+            d2 = sum(self.board[2:7:2])
+            if d1 == 3 or d2 == 3:
+                return "X"
+            if d1 == -3 or d2 == -3:
+                return "O"
+            return "."
+
+        def print_board(self):
+            symbols = [" ", "X", "O"]
+            chars = []
+            res = ""
+            for num in self.board:
+                chars.append(symbols[num])
+            for n in range(3):
+                res += " # ".join(chars[n*3:n*3+3])
+                if n < 2:
+                    res += "\n#########\n"
+            return res
+
+    @commands.command(name="tictactoe")
+    async def tictactoe(self, ctx):
+        """Start a game of tictactoe with the bot"""
+        message = await ctx.send("Setting up tictactoe...")
+        self.TicTacToe(message, ctx.author)
 
 
 def setup(bot):

@@ -1,7 +1,11 @@
 import discord
 import datetime
 import asyncio
+from utils import *
 from discord.ext import commands
+
+
+FPF_PATH = path.join(DATA_PATH, ';lkaypoi2374509123n4pds0f9877akj123;l459p-837409u0u0-uklfjpasdo;klzxjcpl;j---adsf;lk32-asfl;ahdfl;kja4.mp4')
 
 
 class FPF(commands.Cog):
@@ -26,10 +30,9 @@ class FPF(commands.Cog):
         delay = next_friday()
         print(f'{delay} seconds until the next fanny pack friday!')
         await asyncio.sleep(delay)
-        guild = discord.utils.get(self.bot.guilds, name='Incomprehensible Games')
-        channel = discord.utils.get(guild.channels, name='image-surveillance')
+        channel = get_channel(self.bot, "Incomprehensible Games", 'image-surveillance')
         await channel.send('It is fanny pack friday!',
-                           file=discord.File(';lkaypoi2374509123n4pds0f9877akj123;l459p-837409u0u0-uklfjpasdo;klzxjcpl;j---adsf;lk32-asfl;ahdfl;kja4.mp4'))
+                           file=discord.File(FPF_PATH))
         print('I gotta tell ya, I just feel super about it.')
         await asyncio.sleep(600)
         await self.fanny_pack_friday()

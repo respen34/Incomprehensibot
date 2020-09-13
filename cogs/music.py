@@ -2,18 +2,37 @@ import discord
 import audio_player
 import os
 from discord.ext import commands
+import asyncio
 
 
 class Music(commands.Cog):
     music_players = {}
+    timeout_check = 60 * 5  # time to wait between timeout tests in seconds
 
     def __init__(self, bot):
         self.bot = bot
+        self.timeout_is_running = False
         print("Music initialized")
 
     async def new_player(self, ctx):
         # bot connects to the voice client of the user who executed the command and creates a new playlist instance
         self.music_players[ctx.guild] = audio_player.Playlist(await ctx.author.voice.channel.connect())
+        # start timeout loop if not running
+        if not self.timeout_is_running:
+            self.timeout_is_running = True
+            await self.timeout_loop()
+
+    async def timeout_loop(self):
+        while len(self.music_players) > 0:  # breaks loop when all music_players are disconnected
+            for mp in self.music_players.values():
+                if mp is None:
+                    continue
+                if len(mp.vc.channel.members) <= 1:
+                    await mp.vc.disconnect()
+                    self.music_players[mp.vc.guild] = None
+                    print("left empty call.")
+            await asyncio.sleep(self.timeout_check)
+        self.timeout_is_running = False
 
     @commands.command(name='join')
     async def join(self, ctx):
@@ -32,7 +51,7 @@ class Music(commands.Cog):
         """
         player = self.music_players.get(ctx.guild)
         if player is not None:
-            await player.vc.disconnect()
+            await player.vc.disconnect(force=True)
             self.music_players[ctx.guild] = None
             response = 'Alright, see ya.'
         else:
@@ -76,7 +95,7 @@ class Music(commands.Cog):
                     await ctx.send("Invalid index.")
                     return
                 # if chosen index is valid, add the corresponding song
-                source = "https://www.youtube.com" + player.search_results[index].get('link')
+                source = "https://www.youtube.com/watch?v=" + str(player.search_results[index].get('id'))
                 player.search_results = None
 
             if args[0] == "-folder":
@@ -95,10 +114,19 @@ class Music(commands.Cog):
                 if len(source) > 0:
                     song = player.add_song(source)
                     if song == "s":
-                        await ctx.send(f"Search results:\n{player.print_search()}Respond with '~play [n]' to add.")
+                        embed = discord.Embed(
+                            title="Search results:",
+                            color=discord.Color.green(),
+                            description=f"{player.print_search()}Respond with '~play [n]' to add."
+                        )
+                        await ctx.send(embed=embed)
                         return
                     else:
-                        await ctx.send(f" Added: {song} to the queue.")
+                        embed = discord.Embed(
+                            title=f"{song} added to the queue.",
+                            color=discord.Color.blue()
+                        )
+                        await ctx.send(embed=embed)
 
         if not player.vc.is_playing():
             player.play()
@@ -229,4 +257,12 @@ def setup(bot):
 
 
 def teardown(bot):
+    """loop = asyncio.new_event_loop()
+    for player in Music.music_players.values():
+        asyncio.run(cleanup(player.vc))
+        Music.music_players[player.vc.guild] = None"""
     pass
+
+
+async def cleanup(vc):
+    await vc.disconnect()

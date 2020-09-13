@@ -16,6 +16,7 @@ class Misc(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.oppress = False
         print("Misc initialized")
 
     # events
@@ -27,8 +28,42 @@ class Misc(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        if "69" in message.content:
+        if message.author.bot:
+            return
+        if self.oppress and message.channel == self.oppress:
+            await message.channel.send(r.choice([
+                "STOP TALKING ALREADY",
+                "SHUT UP!",
+                "UNACCEPTABLE!",
+                "ONE MORE WORD OUTTA YOU AND YOU'RE GONE!",
+                "NOT IN MY HOUSE",
+                "DON'T TEST ME I WILL BAN YOU!",
+                "CUT THAT OUT!",
+                "KNOCK IT OFF",
+                "DELET THIS NOW!",
+                "WATCH OUT BUDDY. I WILL FIND YOU!",
+                "YOU CAN'T DO THAT HERE",
+                "GET OUT!",
+                "I WILL KILL YOU AND DISRESPECT YOUR WIDOW!",
+                "NOT OK",
+                "NOPE!",
+                "CUT IT",
+                "STOP!",
+                "THAT'S ENOUGH OF THAT",
+                "NO! NO! NO! OUT!",
+                "SHI'NE!",
+                "JUST NO.",
+                "I don't care. GET OUT!"
+            ]))
+            return
+
+        if "69 " in message.content.replace(',', ' ').replace('.', ' ').replace('!', ' ').replace('?', ' ') + ' ':
             await message.channel.send("Nice :point_left::sunglasses::point_right:")
+        if r.random() <= 0.0001:
+            # random response to a message
+            await message.channel.send("I get it!")
+        if self.bot.user.mentioned_in(message) and not message.mention_everyone:
+            await message.channel.send(r.choice(["Can I help help you?", "Can anyone help you?", "What do you want?"]))
 
     """@commands.Cog.listener()
     async def on_typing(self, channel, user, when):
@@ -36,6 +71,15 @@ class Misc(commands.Cog):
             await asyncio.sleep(1)"""
 
     # commands
+    @commands.command()
+    async def oppression(self, ctx):
+        if not self.oppress:
+            self.oppress = ctx.message.channel
+            await ctx.send("Oppression mode activated.")
+        else:
+            self.oppress = None
+            await ctx.send("Oppression mode deactivated.")
+
     @commands.command()
     async def random(self, ctx, number: int = 1, word_list='r'):
         """
@@ -86,7 +130,11 @@ class Misc(commands.Cog):
         member = ctx.author
         role = ctx.guild.roles[1]
         await member.add_roles(role)
-        await ctx.send('You have been added to @all.')
+        embed = discord.Embed(
+            title='You have been added to @all.',
+            color=discord.Color.dark_gray()
+        )
+        await ctx.send(embed=embed)
 
     @commands.command(name='opt-out')
     async def remove_role(self, ctx):
@@ -97,7 +145,11 @@ class Misc(commands.Cog):
         member = ctx.author
         role = ctx.guild.roles[1]
         await member.remove_roles(role)
-        await ctx.send('You have been removed from @all.')
+        embed = discord.Embed(
+            title='You have been removed from @all.',
+            color=discord.Color.dark_gray()
+        )
+        await ctx.send(embed=embed)
 
     @commands.command(name="epic")
     async def say_epic(self, ctx):
@@ -105,9 +157,10 @@ class Misc(commands.Cog):
         extreme epic
         :param ctx: discord context
         """
-        await ctx.send(r.choice(('That^ is epic', 'epic', 'cipe', 'EPIC',
-                                 'most epic', 'yes.', 'very epic', 'indeed, epic',
-                                 "yep, that's pretty epic", 'so epic', 'I know, right?')))
+        response = r.choice(('That^ is epic', 'epic', 'cipe', 'EPIC',
+                             'most epic', 'yes.', 'very epic', 'indeed, epic',
+                             "yep, that's pretty epic", 'so epic', 'I know, right?'))
+        await ctx.send(response)
         
     @commands.command(name="-epic")
     async def not_epic(self, ctx):
@@ -141,6 +194,17 @@ class Misc(commands.Cog):
     @commands.has_permissions(manage_messages=True)
     async def clean(self, ctx, amount: int):
         await ctx.message.channel.purge(limit=amount)
+
+    @commands.command(name="mute")
+    @commands.is_owner()
+    async def mute(self, ctx):
+        channel = ctx.author.voice.channel
+        if channel is None:
+            await ctx.send("You must be in voice to use this command.")
+        for member in channel.members:
+            if member == self.bot:
+                continue
+            await member.edit(mute=not member.voice.mute)
 
 
 def setup(bot):

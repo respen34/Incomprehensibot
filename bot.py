@@ -35,6 +35,14 @@ async def reload(ctx, extension):
     bot.reload_extension(f'cogs.{extension}')
     await ctx.send(f"{extension} successfully reloaded.")
 
+
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.errors.CommandNotFound):
+        await ctx.send("That's not a command!")
+    else:
+        raise error
+
 print('loading...')
 for filename in os.listdir('./cogs'):
     if filename.endswith('.py'):
