@@ -82,9 +82,7 @@ class Misc(commands.Cog):
 
     @commands.command()
     async def random(self, ctx, number: int = 1, word_list='r'):
-        """
-        Returns a randomized three-word
-        """
+        """Returns a randomized three-word"""
         if word_list == 'r':
             response = [
                 randomThreeWords.metawords()
@@ -106,9 +104,7 @@ class Misc(commands.Cog):
 
     @commands.command()
     async def add(self, ctx, *words):
-        """
-        Add new words to the list
-        """
+        """Add new words to the list"""
         with open(f'randwords.txt', 'a') as f:
             f.write("\n".join(words))
             randomThreeWords.load('randwords.txt')
@@ -123,10 +119,8 @@ class Misc(commands.Cog):
 
     @commands.command(name='opt-in')
     async def add_role(self, ctx):
-        """
-        Get the @all role
-        :param ctx: Discord context
-        """
+        """Get the @all role
+        :param ctx: Discord context"""
         member = ctx.author
         role = ctx.guild.roles[1]
         await member.add_roles(role)
@@ -138,10 +132,8 @@ class Misc(commands.Cog):
 
     @commands.command(name='opt-out')
     async def remove_role(self, ctx):
-        """
-        Removed the @all role
-        :param ctx: Discord context
-        """
+        """Remove the @all role
+        :param ctx: Discord context"""
         member = ctx.author
         role = ctx.guild.roles[1]
         await member.remove_roles(role)
@@ -153,10 +145,8 @@ class Misc(commands.Cog):
 
     @commands.command(name="epic")
     async def say_epic(self, ctx):
-        """
-        extreme epic
-        :param ctx: discord context
-        """
+        """extreme epic
+        :param ctx: discord context"""
         response = r.choice(('That^ is epic', 'epic', 'cipe', 'EPIC',
                              'most epic', 'yes.', 'very epic', 'indeed, epic',
                              "yep, that's pretty epic", 'so epic', 'I know, right?'))
@@ -164,21 +154,17 @@ class Misc(commands.Cog):
         
     @commands.command(name="-epic")
     async def not_epic(self, ctx):
-        """
-        most unfortunate
-        :param ctx: discord context
-        """
+        """most unfortunate
+        :param ctx: discord context"""
         await ctx.send(r.choice(("That's not epic", 'not epic', 'cipe ton', '-EPIC',
                                  'least epic', 'no. sorry.', 'not very epic', 'indeed, unepic',
                                  "yep, that's not very epic", 'no epic', 'so sad.')))
 
     @commands.command(name="scramble")
     async def scramble(self, ctx, *message):
-        """
-        Scramble a sentence
+        """Scramble a sentence
         :param ctx: discord context
-        :param message: sentence to scramble
-        """
+        :param message: sentence to scramble"""
         mlist = [item for item in message]
         if len(mlist) == 1:
             word = mlist.pop(0)
