@@ -55,27 +55,43 @@ class Games(commands.Cog):
         channel = discord.utils.get(self.bot.get_all_channels(), guild__id=guild_id, id=channel_id)
         return channel
 
+    def print_stats(self, instance, users):
+        stats = f"High score: {instance['highscore']}\n"
+        for user in users:
+            user_stats = instance["players"].get(str(user.id))
+            if user_stats is None:
+                continue
+            stats += f"{user.name}:\n" \
+                     f"Current: {user_stats['current']}   |" \
+                     f"   All Time: {user_stats['points']}   |   Failures: {user_stats['fails']}\n"
+        return stats
+
     def get_stats(self, channel, member=None):
         instance = self.countingGameInstances[str(channel.guild.id)]
-        if member:
-            member_stats = instance["players"].get(str(member.id))
+        users = []
+        if member == "all":
+            for user_id in instance["players"].keys():
+                user = get(channel.guild.members, id=int(user_id))
+                if user is not None:
+                    users.append(user)
+
+        elif member:
+            user = get(channel.guild.members, name=member)
+            if user is None:
+                return f"User {member} not found."
+            users.append(user)
+            member_stats = instance["players"].get(str())
             if member_stats is None:
                 return f"No stats found for {member.name}."
-            return f"{member.name}:\n" \
-                   f"Current: {member_stats['current']}   |" \
-                   f"   All Time: {member_stats['points']}   |   Failures: {member_stats}"
 
         else:
-            res = f"High score: {instance['highscore']}\n"
             for user_id, user_stats in instance["players"].items():
                 if user_stats["current"] > 0:
                     user = discord.utils.get(channel.guild.members, id=int(user_id))
-                    if user is None:
-                        continue
-                    res += f"{user.name}:\n" \
-                           f"Current: {user_stats['current']}   |" \
-                           f"   All Time: {user_stats['points']}   |   Failures: {user_stats['fails']}\n"
-        return res.rstrip()
+                    if user is not None:
+                        users.append(user)
+
+        return self.print_stats(instance, users)
 
     async def give_roles(self, guild):
         instance = self.countingGameInstances[str(guild.id)]
@@ -86,10 +102,10 @@ class Games(commands.Cog):
         roles = [discord.utils.get(guild.roles, name=role) for role in ("Counting Champion",
                                                                         "Counting Master", "Loser")]
         for player_id, stats in instance["players"].items():
-            member = discord.utils.get(guild.members, id=int(player_id))
+            member = get(guild.members, id=int(player_id))
             # remove champion role
-            if roles[0] in member.roles:
-                await member.remove_roles(roles[0])
+            # if roles[0] in member.roles:
+            #    await member.remove_roles(roles[0])
             # check for champion status
             if stats["current"] > current_max:
                 current_max = stats["current"]
@@ -100,13 +116,18 @@ class Games(commands.Cog):
             elif roles[1] in member.roles:
                 await member.remove_roles(roles[1])
             # check for loser status
-            if (stats["points"] <= LOSER_THRESHOLD or stats["fails"] >= 50) and roles[2] not in member.roles:
+            if (stats["points"] <= LOSER_THRESHOLD) and roles[2] not in member.roles:
                 await member.add_roles(roles[2])
             elif roles[2] in member.roles:
                 await member.remove_roles(roles[2])
         # give champion rank
+        for player_id in instance["players"].keys():
+            member = get(guild.members, id=int(player_id))
+            if member != champion and roles[0] in member.roles:
+                await member.remove_roles(roles[0])
         if instance["last_number"] > 50:
-            await champion.add_roles(roles[0])
+            if not roles[0] in champion.roles:
+                await champion.add_roles(roles[0])
 
     async def retro_check(self, instance, channel):
         if instance["last_message"] is None:
@@ -213,11 +234,9 @@ class Games(commands.Cog):
     # commands
     @commands.command(name="setupCountingGame")
     async def cg_setup(self, ctx):
-        """
-        Initialize counting game on a TC
+        """Initialize counting game on a TC
         :param ctx:
-        :return:
-        """
+        :return:"""
         guild = ctx.guild
         channel = ctx.message.channel
         highscore = 0
@@ -239,11 +258,13 @@ class Games(commands.Cog):
             await ctx.send("Counting Game setup failed.")
 
     @commands.command(name="counting_stats")
-    async def cg_stats(self, ctx):
-        """
-        Returns current game stats
-        """
-        await ctx.send(self.get_stats(ctx.message.channel))
+    async def cg_stats(self, ctx, *args):
+        """Returns current game stats"""
+        if len(args) == 0:
+            member = None
+        else:
+            member = args[0]
+        await ctx.send(self.get_stats(ctx.message.channel, member))
 
     # TIC TAC TOE
     # Helper functions
