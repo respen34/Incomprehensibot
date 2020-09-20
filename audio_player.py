@@ -11,13 +11,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 MUSIC_DIR = os.getenv("MUSIC_DIR")
+MUSIC_EXTS = ('.mp3', '.flac', '.wav', '.m4a')
 
 
 def identify_source(source):
     # tags the source input to tell the player what to do with it
-    if 'youtube.com/watch?v=' in source or 'youtu.be/':
+    if 'youtube.com/watch?v=' in source or 'youtu.be/' in source:
         return 'yt'
-    elif os.path.exists(source) and ('.mp3' in source or '.flac' in source or '.wav' in source or '.m4a' in source):
+    elif os.path.exists(source) and source[source.rindex('.'):] in MUSIC_EXTS:
         return 'f'
     else:
         return 's'
@@ -35,7 +36,7 @@ class Playlist:
             self.downloaded = False
             if self.type == "f":
                 self.downloaded = True
-                self.get_info()
+            self.get_info()
 
         def get_info(self):
             if self.type in ("f", "u"):
@@ -59,6 +60,10 @@ class Playlist:
                         self.artist = artist[0]
                     if title is not None and len(title) > 0:
                         self.title = title[0]
+            elif self.type in ("yt"):
+                info = youtube_search.YoutubeSearch(self.source, max_results=1).to_dict()[0]
+                # self.artist = info.get("channel")
+                self.title = info.get("title")
 
         def cleanup(self):
             if self.type == "u":
@@ -113,14 +118,14 @@ class Playlist:
                 return
         source = self.queue[0].source
         if os.path.exists(source):
-            print(f">playing {source}")
+            # print(f">playing {source}")
             self.vc.play(discord.FFmpegPCMAudio(source), after=lambda e: self.play_next())
             # print(f"downloading next...")
             # downloads next song in queue
             if not self.shuffle and len(self.queue) > 1:
                 self.download(self.queue[1])
         else:
-            print(f"[source not found]: {source}")
+            # print(f"[source not found]: {source}")
             self.play_next()
 
     def get_current_song(self):

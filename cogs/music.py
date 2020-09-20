@@ -36,19 +36,15 @@ class Music(commands.Cog):
 
     @commands.command(name='join')
     async def join(self, ctx):
-        """
-        Adds bot to current VC
-        :param ctx: Discord context
-        """
+        """Adds bot to current VC
+        :param ctx: Discord context"""
         if self.music_players.get(ctx.guild) is None:
             await self.new_player(ctx)
 
     @commands.command(name='leave')
     async def leave(self, ctx):
-        """
-        Kicks bot from VC
-        :param ctx: Discord context
-        """
+        """Kicks bot from VC
+        :param ctx: Discord context"""
         player = self.music_players.get(ctx.guild)
         if player is not None:
             await player.vc.disconnect(force=True)
@@ -60,11 +56,9 @@ class Music(commands.Cog):
 
     @commands.command(name='play')
     async def play_audio(self, ctx, *args):
-        """
-        Adds a song to the queue
+        """Adds a song to the queue
         :param ctx: discord context
-        :param args: audio source
-        """
+        :param args: audio source"""
         if ctx.author.voice.channel is None:
             await ctx.send('You must be in a voice channel to play music.')
             return
@@ -133,12 +127,10 @@ class Music(commands.Cog):
 
     @commands.command(name='move')
     async def move(self, ctx, start: int, end: int):
-        """
-        Move a song in the queue
+        """Move a song in the queue
         :param ctx: discord context
         :param start: original index
-        :param end: new index
-        """
+        :param end: new index"""
         player = self.music_players.get(ctx.guild)
         if player:
             if player.move(start, end):
@@ -146,11 +138,9 @@ class Music(commands.Cog):
 
     @commands.command(name='remove')
     async def remove(self, ctx, index: int):
-        """
-        Remove a song from the queue
+        """Remove a song from the queue
         :param ctx: discord context
-        :param index: position in queue
-        """
+        :param index: position in queue"""
         player = self.music_players.get(ctx.guild)
         if player:
             if index == 0:
@@ -160,10 +150,8 @@ class Music(commands.Cog):
 
     @commands.command(name='stop')
     async def stop(self, ctx):
-        """
-        Kicks bot and clears the queue
-        :param ctx: Discord context
-        """
+        """Kicks bot and clears the queue
+        :param ctx: Discord context"""
         player = self.music_players.get(ctx.guild)
         if player:
             player.queue = []
@@ -175,10 +163,8 @@ class Music(commands.Cog):
 
     @commands.command(name='pause')
     async def pause(self, ctx):
-        """
-        Toggle pause
-        :param ctx: Discord context
-        """
+        """Toggle pause
+        :param ctx: Discord context"""
         player = self.music_players.get(ctx.guild)
         if not player:
             await ctx.send("Wait a minute, I'm not even in voice. What'r you tryin' to pull here?")
@@ -196,10 +182,8 @@ class Music(commands.Cog):
 
     @commands.command(name='skip')
     async def skip(self, ctx):
-        """
-        Skip the current song
-        :param ctx: Discord context
-        """
+        """Skip the current song
+        :param ctx: Discord context"""
         player = self.music_players.get(ctx.guild)
         if player:
             await ctx.send(f"Skipped {player.get_current_song().title}.")
@@ -207,10 +191,8 @@ class Music(commands.Cog):
 
     @commands.command(name='list')
     async def print_list(self, ctx):
-        """
-        The next 10 songs in the queue
-        :param ctx: Discord context
-        """
+        """The next 10 songs in the queue
+        :param ctx: Discord context"""
         player = self.music_players.get(ctx.guild)
         if player:
             response = player.print_queue()
@@ -220,10 +202,8 @@ class Music(commands.Cog):
 
     @commands.command(name='autoplay')
     async def toggle_auto_play(self, ctx):
-        """
-        Toggle autoplay
-        :param ctx: Discord context
-        """
+        """Toggle autoplay
+        :param ctx: Discord context"""
         player = self.music_players.get(ctx.guild)
         if player:
             player.set_autoplay(not player.autoplay)
@@ -231,10 +211,8 @@ class Music(commands.Cog):
 
     @commands.command(name='repeat')
     async def toggle_repeat(self, ctx):
-        """
-        Toggle repeat
-        :param ctx: Discord context
-        """
+        """Toggle repeat
+        :param ctx: Discord context"""
         player = self.music_players.get(ctx.guild)
         if player:
             player.set_repeat(not player.repeat)
@@ -242,10 +220,8 @@ class Music(commands.Cog):
 
     @commands.command(name='shuffle')
     async def shuffle_queue(self, ctx):
-        """
-        Toggle shuffle
-        :param ctx: Discord context
-        """
+        """Toggle shuffle
+        :param ctx: Discord context"""
         player = self.music_players.get(ctx.guild)
         if player:
             player.set_shuffle(not player.shuffle)
@@ -253,6 +229,7 @@ class Music(commands.Cog):
 
 
 def setup(bot):
+    import audio_player
     bot.add_cog(Music(bot))
 
 
