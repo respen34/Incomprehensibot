@@ -45,6 +45,7 @@ class Clock:
     TIMER_TEXT = "{}:{}"
 
     def __init__(self, ctx, set_time):
+        self.full_time = abs(set_time)
         self.current_time = abs(set_time)
         self.is_running = False
         self.guild = ctx.guild
@@ -90,7 +91,7 @@ class Clock:
         if self.is_running:
             await self.stop()
             if ctx.message.mentions:
-                for _ in range(30):
+                for _ in range(self.full_time // 6):
                     await asyncio.sleep(2)
                     for member in ctx.message.mentions:
                         await ctx.send(member.mention)

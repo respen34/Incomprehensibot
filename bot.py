@@ -11,27 +11,21 @@ bot = commands.Bot(command_prefix='~')
 
 @bot.command()
 async def load(ctx, extension):
-    """
-    Load a cog
-    """
+    """Load a cog"""
     bot.load_extension(f'cogs.{extension}')
     await ctx.send(f"{extension} successfully loaded.")
 
 
 @bot.command()
 async def unload(ctx, extension):
-    """
-    Unload a cog
-    """
+    """Unload a cog"""
     bot.unload_extension(f'cogs.{extension}')
     await ctx.send(f"{extension} successfully unloaded.")
 
 
 @bot.command()
 async def reload(ctx, extension):
-    """
-    Reload a cog
-    """
+    """Reload a cog"""
     bot.reload_extension(f'cogs.{extension}')
     await ctx.send(f"{extension} successfully reloaded.")
 

@@ -6,6 +6,7 @@ import random as r
 import math as m
 from discord.ext import commands
 from utils import *
+from abc import ABC, abstractmethod
 
 """
 Counting game for discord.
@@ -99,10 +100,14 @@ class Games(commands.Cog):
         LOSER_THRESHOLD = -200
         current_max = 0
         champion = None
-        roles = [discord.utils.get(guild.roles, name=role) for role in ("Counting Champion",
-                                                                        "Counting Master", "Loser")]
+        roles = [get(guild.roles, name=role) for role in ("Counting Champion",
+                                                          "Counting Master",
+                                                          "Loser")]
         for player_id, stats in instance["players"].items():
             member = get(guild.members, id=int(player_id))
+            print("Member: ", member)
+            if member is None:
+                continue
             # remove champion role
             # if roles[0] in member.roles:
             #    await member.remove_roles(roles[0])
@@ -123,10 +128,12 @@ class Games(commands.Cog):
         # give champion rank
         for player_id in instance["players"].keys():
             member = get(guild.members, id=int(player_id))
+            if member is None:
+                continue
             if member != champion and roles[0] in member.roles:
                 await member.remove_roles(roles[0])
         if instance["last_number"] > 50:
-            if not roles[0] in champion.roles:
+            if not roles[0] in champion.roles and champion is not None:
                 await champion.add_roles(roles[0])
 
     async def retro_check(self, instance, channel):
@@ -169,7 +176,7 @@ class Games(commands.Cog):
                 if not quiet:
                     await message.channel.edit(topic="High Score: {}".format(instance["highscore"]))
 
-            # if a milestone has been reach, dispense encouragement
+            # if a milestone has been reached, dispense encouragement
             if number % 50 == 0:
                 insert = r.choices((number, "{current_number}", number // r.randint(2, 5), r.randint(-number, number)),
                                    (.70, .25, .04, .01))[0]
@@ -266,33 +273,172 @@ class Games(commands.Cog):
             member = args[0]
         await ctx.send(self.get_stats(ctx.message.channel, member))
 
-    # TIC TAC TOE
-    # Helper functions
-    class TicTacToe:
+    #
+    # Other Games
+    #
+    # Reaction listener
+    @commands.Cog.listener()
+    async def on_reaction_add(self, reaction, user):
+        for g_type in [self.TicTacToe, self.ConnectFour]:
+            game = g_type.games.get(reaction.message.id)
+            # print(game)
+            if game is not None:
+                break
+        if game is None:
+            return
+        if game.vs:
+            if (game.player1, game.player2)[game.turn] != user:
+                return
+        elif game.player1 != user:
+            return
+        # print("correct game found")
+        try:
+            move = int(str(reaction)[0]) - 1
+        except ValueError:
+            return
+        # print(move)
+        # print(game.get_options())
+        await game.player_move(move)
+
+    # Grid games
+    class GridGame(ABC):
         games = {}
 
-        def __init__(self, message, user):
-            self.games[message] = self
-            self.board = [0 for _ in range(9)]
-            self.player = user
+        def __init__(self, width, height, message, user, user2=None):
+            self.message = message
+            self.games[message.id] = self
+            self.size = self.width, self.height = width, height
+            self.board = self.gen_board(self.size)
+            self.player1 = user
+            self.player2 = user2
+            self.vs = False
+            if user2 is not None:
+                self.vs = True
+            self.turn = 0
             self.print_board()
 
+        @abstractmethod
+        def gen_board(self, size):
+            pass
+
+        @abstractmethod
+        def print_board(self):
+            pass
+
+        @abstractmethod
+        def check_win(self):
+            pass
+
+        @abstractmethod
+        def get_moves(self):
+            pass
+
+        @abstractmethod
+        def move(self, index, player):
+            pass
+
+        @abstractmethod
+        async def comp_move(self):
+            pass
+
+        async def player_move(self, index):
+            if index not in self.get_moves():
+                return
+            player_index = (1, -1)[self.turn]
+            if self.vs:
+                self.move(index, player_index)
+                self.turn = (self.turn + 1) % 2
+                await self.update_board()
+            else:
+                self.move(index, 1)
+                self.turn = (self.turn + 1) % 2
+
+            # check for game end
+            if len(self.get_moves()) == 0:
+                await self.end_game()
+            elif self.check_win() == '.':
+                if not self.vs:
+                    await self.comp_move()
+            else:
+                await self.end_game()
+
+        async def end_game(self):
+            await self.update_board()
+            win = self.check_win()
+            if win == "X":
+                if self.vs:
+                    await self.message.edit(content=self.player1.mention + " won. I always knew you would win.")
+                else:
+                    await self.message.edit(content='"Congratulations", you "won".')
+            elif win == "O":
+                if self.vs:
+                    await self.message.edit(content=self.player2.mention + " won, I guess. Good for you bud.")
+                else:
+                    await self.message.edit(content='HA, I WON! I WON! FUCK YOU, LOSER!')
+            else:
+                if self.vs:
+                    await self.message.edit(content="Wow it's a draw. Thrilling.")
+                else:
+                    await self.message.edit(content="I didn't lose, so I won!")
+            self.games[self.message.id] = None
+
+        async def update_board(self):
+            embed = discord.Embed(
+                title=self.print_board(),
+                color=discord.Color.green()
+            )
+            if self.vs:
+                users = (self.player1, self.player2)
+                content = users[self.turn].mention + " is up."
+            else:
+                content = None
+            await self.message.edit(content=content, embed=embed)
+
+    # TIC TAC TOE
+
+    @commands.command(name="tictactoe")
+    async def tictactoe(self, ctx):
+        """Start a game of tictactoe with the bot"""
+        message = await ctx.send("Setting up tictactoe...")
+        for emoji in ["1⃣", "2⃣", "3⃣", "4⃣", "5⃣",
+                      "6⃣", "7⃣", "8⃣", "9⃣"]:
+            await message.add_reaction(emoji)
+        if len(ctx.message.mentions) > 0:
+            opponent = ctx.message.mentions[0]
+        else:
+            opponent = None
+        game = self.TicTacToe(message, ctx.author, opponent)
+        await game.update_board()
+
+    class TicTacToe(GridGame):
+        def __init__(self, message, user, user2=None):
+            super().__init__(3, 3, message, user, user2)
+
+        def gen_board(self, size):
+            return [0 for _ in range(size[0] ** 2)]
+
+        def print_board(self):
+            symbols = ["▫", "❌", "⭕"]
+            chars = []
+            res = ""
+            for num in self.board:
+                chars.append(symbols[num])
+            for n in range(3):
+                res += " # ".join(chars[n * 3:n * 3 + 3])
+                if n < 2:
+                    res += "\n#########\n"
+            return res
 
         def check_win(self):
-            # horizontal test
+            # rows and cols
             for n in range(3):
-                check = sum(self.board[n * 3:n * 3 + 3])
-                if check == 3:
+                row_check = sum(self.board[n * 3:n * 3 + 3])
+                col_check = sum(self.board[n:n + 7:3])
+                if row_check == 3 or col_check == 3:
                     return "X"
-                if check == -3:
+                if row_check == -3 or col_check == -3:
                     return "O"
-            # vertical test
-            for n in range(3):
-                check = sum(self.board[n:n + 7:3])
-                if check == 3:
-                    return "X"
-                if check == -3:
-                    return "O"
+
             # diagonal test
             d1 = sum(self.board[0:9:4])
             d2 = sum(self.board[2:7:2])
@@ -302,23 +448,289 @@ class Games(commands.Cog):
                 return "O"
             return "."
 
-        def print_board(self):
-            symbols = [" ", "X", "O"]
-            chars = []
-            res = ""
-            for num in self.board:
-                chars.append(symbols[num])
-            for n in range(3):
-                res += " # ".join(chars[n*3:n*3+3])
-                if n < 2:
-                    res += "\n#########\n"
+        def get_moves(self):
+            res = []
+            for i in range(len(self.board)):
+                if self.board[i] == 0:
+                    res.append(i)
             return res
 
-    @commands.command(name="tictactoe")
-    async def tictactoe(self, ctx):
-        """Start a game of tictactoe with the bot"""
-        message = await ctx.send("Setting up tictactoe...")
-        self.TicTacToe(message, ctx.author)
+        def move(self, index, player):
+            self.board[index] = player
+
+        async def comp_move(self):
+            # check for draw
+            if len(self.get_moves()) == 0:
+                await self.end_game()
+            else:
+                # plan and make choice
+                options = self.get_moves()
+                wins, blocks = self.check_blocking()
+                if len(wins) > 0:
+                    self.move(r.choice(wins), -1)
+                elif len(blocks) > 0:
+                    self.move(r.choice(blocks), -1)
+                elif 4 in options:
+                    self.move(4, -1)
+                elif 0 in options:
+                    self.move(0, -1)
+                else:
+                    self.move(r.choice(options), -1)
+                # check for win
+                if self.check_win() == '.':
+                    await self.update_board()
+                else:
+                    await self.end_game()
+
+        def check_blocking(self):
+            index = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+            blocks = []
+            wins = []
+            # row/col tests
+            for n in range(3):
+                h_check = self.board[n * 3:n * 3 + 3]
+                v_check = self.board[n:n + 7:3]
+                h_add_to = []
+                v_add_to = []
+
+                # horizontal
+                if sum(h_check) == 2:
+                    h_add_to = blocks
+                elif sum(h_check) == -2:
+                    h_add_to = wins
+                for i in range(3):
+                    if h_check[i] == 0:
+                        h_add_to.append(index[n * 3:n * 3 + 3][i])
+                        break
+
+                # vertical
+                if sum(v_check) == 2:
+                    v_add_to = blocks
+                elif sum(v_check) == -2:
+                    v_add_to = wins
+                for i in range(3):
+                    if v_check[i] == 0:
+                        v_add_to.append(index[n:n + 7:3][i])
+                        break
+            # diagonal test
+            for n in range(2):
+                check = self.board[2 * n:9 - 2 * n:4 - 2 * n]
+                add_to = []
+                if sum(check) == 2:
+                    add_to = blocks
+                elif sum(check) == -2:
+                    add_to = wins
+                for i in range(3):
+                    if check[i] == 0:
+                        add_to.append(index[2 * n:9 - 2 * n:4 - 2 * n][i])
+                        break
+            return wins, blocks
+
+    # Connect Four
+    @commands.command(name="connectfour")
+    async def start_connect_four(self, ctx):
+        message = await ctx.send("Setting up connect four")
+        for emoji in ["1⃣", "2⃣", "3⃣", "4⃣", "5⃣",
+                      "6⃣", "7⃣"]:
+            await message.add_reaction(emoji)
+        if len(ctx.message.mentions) > 0:
+            opponent = ctx.message.mentions[0]
+        else:
+            opponent = None
+        game = self.ConnectFour(message, ctx.author, opponent)
+        await game.update_board()
+
+    class ConnectFour(GridGame):
+        def __init__(self, message, user1, user2=None):
+            super().__init__(7, 6, message, user1, user2)
+
+        def gen_board(self, size):
+            return [[0 for _ in range(size[1])] for n in range(size[0])]
+
+        def print_board(self):
+            symbols = ["▫", "🔴", "🟡"]
+            res = ""
+            for n in range(self.height):
+                row = []
+                for col in self.board:
+                    row.append(col[n])
+                res += "| "
+                for num in row:
+                    res += symbols[num] + " | "
+                res += "\n"
+            res += "-------------------------------------"
+            return res
+
+        def check_win(self):
+            # check cols
+            for n in range(self.width):
+                for i in range(self.height - 4 + 1):
+                    check = sum(self.board[n][i:i + 4])
+                    if check == 4:
+                        return "X"
+                    if check == -4:
+                        return "O"
+            # check rows
+            for n in range(self.height):
+                for i in range(self.width - 4 + 1):
+                    check = []
+                    for col in range(4):
+                        check.append(self.board[i + col][n])
+                    if sum(check) == 4:
+                        return "X"
+                    if sum(check) == -4:
+                        return "O"
+            # diagonal test
+            for n in range(4):
+                for i in range(self.height - 4 + 1):
+                    r_check = []
+                    l_check = []
+                    for d in range(4):
+                        r_check.append(self.board[n + d][i + d])
+                        l_check.append(self.board[self.width - 1 - n - d][i + d])
+
+                    if sum(r_check) == 4 or sum(l_check) == 4:
+                        return "X"
+                    if sum(r_check) == -4 or sum(l_check) == -4:
+                        return "O"
+            return "."
+
+        def get_moves(self):
+            res = []
+            for i in range(self.width):
+                if self.board[i][0] == 0:
+                    res.append(i)
+            return res
+
+        def move(self, col, player):
+            # add move to lowest slot of the column
+            row = self.get_bottom_row(col)
+            self.board[col][row] = player
+
+        async def comp_move(self):
+            # plan and move
+            self.move(self.ai(), -1)
+
+            # check for game end
+            if len(self.get_moves()) == 0:
+                await self.end_game()
+            await self.update_board()
+            if self.check_win() != '.':
+                await self.end_game()
+
+        def ai(self):
+            blocks = []
+            wins = []
+            # test all columns with available moves
+            for col in self.get_moves():
+                row = self.get_bottom_row(col)
+                move_weight = self.check(col, row, 3, 4)
+                if move_weight[0]:
+                    wins.append(col)
+                if move_weight[1]:
+                    blocks.append(col)
+
+            if len(wins) > 0:
+                print("win")
+                return r.choice(wins)
+            elif len(blocks) > 0:
+                print("block")
+                return r.choice(blocks)
+            else:
+                # plan phase
+                safe_moves = []
+                for col in self.get_moves():
+                    row = self.get_bottom_row(col) - 1
+                    move_weight = self.check(col, row, 3, 4)
+                    if not move_weight[1]:
+                        # experimental
+                        if not move_weight[0]:
+                            safe_moves.append(col)
+                if len(safe_moves) > 0:
+                    print("planned:")
+                    # check for future blocks/wins
+                    blocks = []
+                    setups = []
+                    both = []
+                    for col in safe_moves:
+                        row = self.get_bottom_row(col)
+                        move_weight = self.check(col, row, 2, 4)
+                        if move_weight[0] and move_weight[1]:
+                            both.append(col)
+                        if move_weight[0]:
+                            setups.append(col)
+                        if move_weight[1]:
+                            blocks.append(col)
+                    if len(both) > 0:
+                        print("  >block/setup")
+                        return r.choice(both)
+                    if len(blocks) > 0:
+                        print("  >block")
+                        """if len(blocks) > 1:
+                            for col in blocks:
+                                row = self.get_bottom_row(col)
+                                move_weight = self.check(col, self.height - 1 - row, 2, 3)
+                                if not move_weight[1]:
+                                    blocks.remove(col)"""
+                        return r.choice(blocks)
+                    if len(setups) > 0:
+                        print("  >setup")
+                        return r.choice(setups)
+                    print("  >random")
+                    return r.choice(safe_moves)
+                else:
+                    print("random")
+                    return r.choice(self.get_moves())
+
+        def check(self, col, row, count, length):
+            # col
+            block = False
+            win = False
+            for y in range(max(row - (length - 1), 0), min(row + length, self.height) - (length - 1)):
+                check = sum(self.board[col][y:y + length])
+                if check == -count:
+                    win = True
+                if check == count:
+                    block = True
+            # row
+            for x in range(max(col - (length - 1), 0), min(col + length, self.width) - (length - 1)):
+                check = 0
+                for i in range(length):
+                    check += self.board[x + i][row]
+                if check == -count:
+                    win = True
+                if check == count:
+                    block = True
+            # right diagonals
+            start = -min(col, row, length - 1)
+            end = min(self.width - 1 - col, self.height - 1 - row, length - 1) - (length - 2)
+            for delta in range(start, end):
+                check = 0
+                for i in range(length):
+                    check += self.board[col + delta + i][row + delta + i]
+                if check == -count:
+                    win = True
+                if check == count:
+                    block = True
+            # left diagonals
+            start = -min(row, self.width - 1 - col, length - 1)
+            end = min(col, self.height - 1 - row, length - 1) - (length - 2)
+            for delta in range(start, end):
+                check = 0
+                for i in range(length):
+                    check += self.board[col - delta - i][row + delta + i]
+                if check == -count:
+                    win = True
+                if check == count:
+                    block = True
+
+            return win, block
+
+        def get_bottom_row(self, col):
+            row = 0
+            for n in range(self.height):
+                row += abs(self.board[col][n])
+            return self.height - 1 - row
 
 
 def setup(bot):

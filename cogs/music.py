@@ -8,22 +8,32 @@ import asyncio
 class Music(commands.Cog):
     music_players = {}
     timeout_check = 60 * 5  # time to wait between timeout tests in seconds
+    hasRun = False
 
     def __init__(self, bot):
         self.bot = bot
         self.timeout_is_running = False
         print("Music initialized")
 
+    async def run_once(self):
+        if not self.hasRun:
+            self.hasRun = True
+            await self.timeout_loop()
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        await self.run_once()
+
     async def new_player(self, ctx):
         # bot connects to the voice client of the user who executed the command and creates a new playlist instance
         self.music_players[ctx.guild] = audio_player.Playlist(await ctx.author.voice.channel.connect())
         # start timeout loop if not running
-        if not self.timeout_is_running:
+        """if not self.timeout_is_running:
             self.timeout_is_running = True
-            await self.timeout_loop()
+            await self.timeout_loop()"""
 
     async def timeout_loop(self):
-        while len(self.music_players) > 0:  # breaks loop when all music_players are disconnected
+        while True:  # breaks loop when all music_players are disconnected
             for mp in self.music_players.values():
                 if mp is None:
                     continue
@@ -32,7 +42,7 @@ class Music(commands.Cog):
                     self.music_players[mp.vc.guild] = None
                     print("left empty call.")
             await asyncio.sleep(self.timeout_check)
-        self.timeout_is_running = False
+        # self.timeout_is_running = False
 
     @commands.command(name='join')
     async def join(self, ctx):

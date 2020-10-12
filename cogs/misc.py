@@ -4,6 +4,7 @@ from discord.ext import commands
 from os import path
 import random as r
 import asyncio
+from utils import *
 
 
 # word lists
@@ -17,6 +18,7 @@ class Misc(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.oppress = False
+        self.nice = False
         print("Misc initialized")
 
     # events
@@ -30,55 +32,99 @@ class Misc(commands.Cog):
     async def on_message(self, message):
         if message.author.bot:
             return
+        # replace all messages
+        """await message.delete()
+        await message.channel.send(message.content)"""
+        # oppression mode
         if self.oppress and message.channel == self.oppress:
-            await message.channel.send(r.choice([
-                "STOP TALKING ALREADY",
-                "SHUT UP!",
-                "UNACCEPTABLE!",
-                "ONE MORE WORD OUTTA YOU AND YOU'RE GONE!",
-                "NOT IN MY HOUSE",
-                "DON'T TEST ME I WILL BAN YOU!",
-                "CUT THAT OUT!",
-                "KNOCK IT OFF",
-                "DELET THIS NOW!",
-                "WATCH OUT BUDDY. I WILL FIND YOU!",
-                "YOU CAN'T DO THAT HERE",
-                "GET OUT!",
-                "I WILL KILL YOU AND DISRESPECT YOUR WIDOW!",
-                "NOT OK",
-                "NOPE!",
-                "CUT IT",
-                "STOP!",
-                "THAT'S ENOUGH OF THAT",
-                "NO! NO! NO! OUT!",
-                "SHI'NE!",
-                "JUST NO.",
-                "I don't care. GET OUT!"
-            ]))
+            await message.channel.send(self.oppress)
             return
-
+        # nice mode
+        if self.nice and message.channel == self.nice:
+            await message.channel.send(self.be_nice)
+            return
+        # 69 check
         if "69 " in message.content.replace(',', ' ').replace('.', ' ').replace('!', ' ').replace('?', ' ') + ' ':
             await message.channel.send("Nice :point_left::sunglasses::point_right:")
-        if r.random() <= 0.0001:
-            # random response to a message
+        # random response to a message
+        if r.random() <= 0.001:
             await message.channel.send("I get it!")
+        # check for mentions
         if self.bot.user.mentioned_in(message) and not message.mention_everyone:
             await message.channel.send(r.choice(["Can I help help you?", "Can anyone help you?", "What do you want?"]))
+        # dad bot
+        await self.dad(message)
+        # custom @anyone
+        """anyone = get(message.role_mentions, name="anyone")
+        if anyone is not None:
+            print("testing")
+            role = get(message.channel.guild.roles, name="anyone")
+            for member in message.channel.guild.members:
+                if role in member.roles:
+                    await member.remove_roles(role)
+            print(message.channel.guild.members)
+            member = r.choice(message.channel.guild.members)
+            print(member.name)
+            await member.add_roles(role)"""
+
 
     """@commands.Cog.listener()
     async def on_typing(self, channel, user, when):
         async with channel.typing():
             await asyncio.sleep(1)"""
+    # text functions
+    def oppress(self):
+        return r.choice(["STOP TALKING ALREADY", "SHUT UP!", "UNACCEPTABLE!", "NOT IN MY HOUSE", "CUT THAT OUT!",
+                         "ONE MORE WORD OUTTA YOU AND YOU'RE GONE!", "DON'T TEST ME I WILL BAN YOU!", "KNOCK IT OFF",
+                         "DELET THIS NOW!", "GET OUT!", "NOT OK", "NOPE!", "CUT IT", "STOP!", "SHI'NE!", "JUST NO.",
+                         "WATCH OUT BUDDY. I WILL FIND YOU!", "I WILL KILL YOU AND DISRESPECT YOUR WIDOW!",
+                         "YOU CAN'T DO THAT HERE", "THAT'S ENOUGH OF THAT", "NO! NO! NO! OUT!", "I don't care. GET OUT!"
+                         ])
+
+    def be_nice(self):
+        r.choice(["Have a lovely day!", "I LOVE that look!!!!!!!;)", "You look not terrible!", "Pretty neat!",
+                  "That's soooooooooooooooooooo cool!♥", "What you said wasn't half bad.", "You are not garbage.",
+                  "Your face looks less punchable today.", "You don't smell bad and I don't hate you at all!",
+                  "Today is the first day of the rest of your life.", "You look like you need a hug.♥ XOXOXO",
+                  "Gold Star", "You're so swell.", "Lookin' Snazzy.", "Lookin' good!", "Hugs and Kisses!",
+                  "Feel good about yourself, NOW!", "You're decent", "Don't feel sad, just don't.", "I love that!",
+                  "This conversation is interesting.", "Love ya!", "Call me!♥",
+                  "This is the best conversation that I'm commenting on right now in this channel."
+                  ])
+
+    async def dad(self, message):
+        DAD_CHANCE = 1
+        dad_check = " " + message.content
+        dad_check = dad_check.replace(" I'm ", " I am ").replace(" i'm ", " I am ")
+        dad_check = dad_check.replace(" i am ", " I am ").replace(" im ", " I am ").replace(" Im ", " I am ")
+        if "I am " in dad_check and r.random() < DAD_CHANCE:
+            stop = dad_check.find(".")
+            if stop == -1:
+                name = dad_check[dad_check.find("I am ") + 5:]
+            else:
+                name = dad_check[dad_check.find("I am ") + 5:stop]
+            await message.channel.send(f"Hi, {name}, I'm dad.")
 
     # commands
     @commands.command()
     async def oppression(self, ctx):
+        """There's a new sheriff in town."""
         if not self.oppress:
             self.oppress = ctx.message.channel
             await ctx.send("Oppression mode activated.")
         else:
             self.oppress = None
             await ctx.send("Oppression mode deactivated.")
+
+    @commands.command()
+    async def nice(self, ctx):
+        """Hello, nice to see you."""
+        if not self.nice:
+            self.nice = ctx.message.channel
+            await ctx.send("Nice mode activated.")
+        else:
+            self.nice = None
+            await ctx.send("No more Mr. Nice Guy.")
 
     @commands.command()
     async def random(self, ctx, number: int = 1, word_list='r'):
@@ -160,6 +206,11 @@ class Misc(commands.Cog):
                                  'least epic', 'no. sorry.', 'not very epic', 'indeed, unepic',
                                  "yep, that's not very epic", 'no epic', 'so sad.')))
 
+    @commands.command(name="epic?")
+    async def maybe_epic(self, ctx):
+        """Let's find out!"""
+        await ctx.send(r.choice(("yes. epic.", "no. not epic.", "indeed. that is epic.", "sorry. not epic.")))
+
     @commands.command(name="scramble")
     async def scramble(self, ctx, *message):
         """Scramble a sentence
@@ -191,6 +242,17 @@ class Misc(commands.Cog):
             if member == self.bot:
                 continue
             await member.edit(mute=not member.voice.mute)
+
+    @commands.command(name="lookup")
+    async def lookup(self, ctx):
+        member = ctx.message.mentions[0]
+        if member is None:
+            return
+        embed = discord.Embed(
+            title=member.name,
+            description=member.id
+        )
+        await ctx.send(embed=embed)
 
 
 def setup(bot):
